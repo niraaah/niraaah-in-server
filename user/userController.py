@@ -4,7 +4,7 @@ from utils.dbHelper import getDatabaseConnection
 
 userBlueprint = Blueprint('user', __name__)
 
-@userBlueprint.route('/profile', methods=['PUT'])
+@userBlueprint.route('/profile', methods=['PUT'], endpoint='update_user_profile')
 @requireAuthentication
 def updateUserProfile():
     requestData = request.get_json()
@@ -50,7 +50,7 @@ def updateUserProfile():
     finally:
         cursor.close()
 
-@userBlueprint.route('/applications', methods=['POST'])
+@userBlueprint.route('/applications', methods=['POST'], endpoint='apply_for_job')
 @requireAuthentication
 def applyForJob():
     try:
@@ -132,7 +132,7 @@ def applyForJob():
         if 'cursor' in locals():
             cursor.close()
 
-@userBlueprint.route('/applications', methods=['GET'])
+@userBlueprint.route('/applications', methods=['GET'], endpoint='list_user_applications')
 @requireAuthentication
 def listUserApplications():
     statusFilter = request.args.get('status_filter')
@@ -170,7 +170,7 @@ def listUserApplications():
     finally:
         cursor.close()
 
-@userBlueprint.route('/applications/<int:applicationId>', methods=['DELETE'])
+@userBlueprint.route('/applications/<int:applicationId>', methods=['DELETE'], endpoint='cancel_application')
 @requireAuthentication
 def cancelApplication(applicationId):
     database = getDatabaseConnection()
@@ -200,7 +200,7 @@ def cancelApplication(applicationId):
     finally:
         cursor.close()
 
-@userBlueprint.route('/bookmarks', methods=['POST'])
+@userBlueprint.route('/bookmarks', methods=['POST'], endpoint='toggle_bookmark')
 @requireAuthentication
 def toggleBookmark():
     requestData = request.get_json()
@@ -238,7 +238,7 @@ def toggleBookmark():
     finally:
         cursor.close()
 
-@userBlueprint.route('/bookmarks', methods=['GET'])
+@userBlueprint.route('/bookmarks', methods=['GET'], endpoint='list_bookmarks')
 @requireAuthentication
 def listBookmarks():
     pageNumber = int(request.args.get('page', 1))
@@ -302,3 +302,7 @@ def listBookmarks():
         return jsonify(bookmarks)
     finally:
         cursor.close()
+
+@userBlueprint.route('/<int:userId>', methods=['GET'], endpoint='get_user_detail')
+def getUserDetail(userId):
+    ...
