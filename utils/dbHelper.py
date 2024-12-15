@@ -5,7 +5,7 @@ from flask import g
 databaseConfig = {
     "host": '113.198.66.75',
     "user": 'admin',
-    "password": 'xodbs1234',
+    "password": 'qwer1234',
     "database": 'wsd3',
     "port": 13145
 }

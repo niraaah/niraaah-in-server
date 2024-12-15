@@ -5,9 +5,16 @@ from auth.authController import authBlueprint
 from job.jobController import jobBlueprint
 from user.userController import userBlueprint
 from utils.dbHelper import initializeDatabase
+from flask_sqlalchemy import SQLAlchemy
 
 app = Flask(__name__)
 CORS(app)
+
+# 데이터베이스 설정
+app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql://admin:qwer1234@113.198.66.75:13145/wsd3'
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+
+db = SQLAlchemy(app)
 
 # Swagger 설정
 SWAGGER_URL = '/api/docs'
