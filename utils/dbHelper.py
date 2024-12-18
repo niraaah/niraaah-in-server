@@ -1,3 +1,8 @@
+import sys
+import os
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from database.connectionManager import DatabaseManager
+
 import mysql.connector
 from mysql.connector import pooling
 from flask import g
