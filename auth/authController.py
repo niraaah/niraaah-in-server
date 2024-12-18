@@ -102,10 +102,10 @@ def registerUser():
 
         cursor.execute(
             """
-            INSERT INTO users(email, password_hash, name, phone, birth_date, status) 
-            VALUES (%s, %s, %s, %s, %s, 'active')
+            INSERT INTO users(email, username, password_hash, name, phone, birth_date, status) 
+            VALUES (%s, %s, %s, %s, %s, %s, 'active')
             """,
-            (requestData['email'], hashedPassword, requestData['name'],
+            (requestData['email'], requestData['username'], hashedPassword, requestData['name'],
             requestData.get('phone'), requestData.get('birth_date'))
         )
         database.commit()
