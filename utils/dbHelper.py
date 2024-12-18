@@ -12,7 +12,7 @@ databaseConfig = {
 
 databasePool = pooling.MySQLConnectionPool(
     pool_name="mainPool",
-    pool_size=5,
+    pool_size=20,
     **databaseConfig
 )
 
@@ -25,6 +25,7 @@ def closeDatabaseConnection(error):
     database = g.pop('database', None)
     if database is not None:
         database.close()
+        database.disconnect()
 
 def initializeDatabase():
     return databasePool

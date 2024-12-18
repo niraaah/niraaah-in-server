@@ -1,10 +1,10 @@
-from flask import Flask
+from flask import Flask, g
 from flask_swagger_ui import get_swaggerui_blueprint
 from flask_cors import CORS
 from auth.authController import authBlueprint
 from job.jobController import jobBlueprint
 from user.userController import userBlueprint
-from utils.dbHelper import initializeDatabase
+from utils.dbHelper import initializeDatabase, closeDatabaseConnection
 from flask_sqlalchemy import SQLAlchemy
 
 app = Flask(__name__)
@@ -33,6 +33,10 @@ app.register_blueprint(userBlueprint, url_prefix='/users')
 
 # 데이터베이스 초기화
 initializeDatabase()
+
+@app.teardown_appcontext
+def cleanup(error):
+    closeDatabaseConnection(error)
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=8080, debug=True)
