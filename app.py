@@ -10,8 +10,8 @@ from flask_sqlalchemy import SQLAlchemy
 app = Flask(__name__)
 CORS(app)
 
-# 데이터베이스 설정
-app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql://admin:qwer1234@113.198.66.75:13145/wsd3'
+# MySQL 설정으로 변경
+app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql+mysqlconnector://admin:qwer1234@113.198.66.75:10108/wsd3'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 db = SQLAlchemy(app)
