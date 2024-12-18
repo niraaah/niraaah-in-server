@@ -7,7 +7,7 @@ databaseConfig = {
     "user": 'admin',
     "password": 'qwer1234',
     "database": 'wsd3',
-    "port": 19108 
+    "port": 13108 
 }
 
 databasePool = pooling.MySQLConnectionPool(
