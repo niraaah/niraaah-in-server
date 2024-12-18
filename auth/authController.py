@@ -86,7 +86,7 @@ def registerUser():
     if not requestData:
         return jsonify({"message": "No input data provided"}), 400
 
-    requiredFields = ['email', 'password', 'name']
+    requiredFields = ['email', 'password', 'name', 'username']
     if not all(field in requestData for field in requiredFields):
         return jsonify({"message": "Missing required fields"}), 400
 
@@ -105,8 +105,14 @@ def registerUser():
             INSERT INTO users(email, username, password_hash, name, phone, birth_date, status) 
             VALUES (%s, %s, %s, %s, %s, %s, 'active')
             """,
-            (requestData['email'], requestData['username'], hashedPassword, requestData['name'],
-            requestData.get('phone'), requestData.get('birth_date'))
+            (
+                requestData['email'],                    # 필수
+                requestData.get('email'),                # username을 email로 사용
+                hashedPassword,                          # 필수
+                requestData['name'],                     # 필수
+                requestData.get('phone'),                # 선택
+                requestData.get('birth_date')            # 선택
+            )
         )
         database.commit()
         userId = cursor.lastrowid
