@@ -347,7 +347,7 @@ def createJob():
     cursor = database.cursor(dictionary=True)
 
     try:
-        # 회사 ID가 0이면 새로운 회사 생성
+        # 회사 ID가 0���면 새로운 회사 생성
         company_id = requestData['company_id']
         if company_id == 0:
             # 회사명 중복 체크
@@ -414,11 +414,12 @@ def createJob():
             requestData.get('employment_type'), requestData.get('salary_info'),
             locationId, deadline_date)
         )
+        
+        # 여기서 posting_id를 가져옴
+        posting_id = cursor.lastrowid
         database.commit()
 
-        # 채용공고 생성 후 tech_stacks 처리
-        posting_id = cursor.lastrowid
-        
+        # tech_stacks 처리
         if 'tech_stacks' in requestData and requestData['tech_stacks']:
             for stack in requestData['tech_stacks']:
                 if stack != "string":  # "string" 값 무시
@@ -437,7 +438,7 @@ def createJob():
                         (posting_id, stack_id)
                     )
 
-        # job_categories 처리도 유사하게
+        # job_categories 처리
         if 'job_categories' in requestData and requestData['job_categories']:
             for category in requestData['job_categories']:
                 if category != "string":
@@ -453,7 +454,7 @@ def createJob():
         database.commit()
         return jsonify({
             "message": "Job posting created successfully",
-            "posting_id": cursor.lastrowid,
+            "posting_id": posting_id,  # cursor.lastrowid 대신 저장해둔 posting_id 사용
             "company_id": company_id
         }), 201
 
