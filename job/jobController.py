@@ -110,7 +110,7 @@ def listJobs():
         jp.posting_id,
         c.name as company_name,
         jp.title,
-        jp.description,
+        jp.job_description,
         jp.experience_level,
         jp.education_level,
         jp.employment_type,
