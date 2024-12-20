@@ -22,14 +22,11 @@ def validatePassword(plainPassword: str, encodedPassword: str) -> bool:
 
 def generateAccessToken(data: dict, expiresIn: Optional[timedelta] = None):
     tokenData = data.copy()
-    if expiresIn:
-        expireTime = datetime.utcnow() + expiresIn
-    else:
-        expireTime = datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    expireTime = datetime.utcnow() + (expiresIn or timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES))
     
     tokenData.update({
-        "exp": expireTime,
-        "iat": datetime.utcnow(),
+        "exp": int(expireTime.timestamp()),
+        "iat": int(datetime.utcnow().timestamp()),
         "type": "access_token"
     })
     return jwt.encode(tokenData, SECRET_KEY, algorithm=ALGORITHM)
@@ -39,8 +36,8 @@ def generateRefreshToken(data: dict):
     expireTime = datetime.utcnow() + timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS)
     
     tokenData.update({
-        "exp": expireTime,
-        "iat": datetime.utcnow(),
+        "exp": int(expireTime.timestamp()),
+        "iat": int(datetime.utcnow().timestamp()),
         "type": "refresh_token",
         "scope": "refresh_token"
     })
@@ -177,7 +174,6 @@ def loginUser():
         cursor = database.cursor(dictionary=True)
 
         try:
-            # 디버깅을 위한 로그 추가
             print(f"Attempting login with username: {username}")
             
             email = username.replace('%40', '@')
@@ -191,10 +187,8 @@ def loginUser():
                 print(f"User not found for email: {email}")
                 return jsonify({"message": "Invalid credentials"}), 401
 
-            # 디버깅을 위한 로그 추가
             print(f"Found user with id: {userInfo['user_id']}")
             
-            # 저장된 해시와 입력된 비밀���호 비교
             stored_hash = userInfo['password_hash']
             if isinstance(stored_hash, str):
                 stored_hash = stored_hash.encode('utf-8')
@@ -205,15 +199,25 @@ def loginUser():
 
             print("Password verified successfully")
             
-            # 토큰 생성
-            accessToken = generateAccessToken(data={"sub": userInfo['user_id']})
-            refreshToken = generateRefreshToken(data={"sub": userInfo['user_id']})
+            # 토큰 생성 부분 수정
+            token_data = {"sub": str(userInfo['user_id'])}
+            
+            # 액세스 토큰 생성
+            access_token = generateAccessToken(token_data)
+            print(f"Generated access token: {access_token[:20]}...")  # 디버깅용
+            
+            # 리프레시 토큰 생성
+            refresh_token = generateRefreshToken(token_data)
+            print(f"Generated refresh token: {refresh_token[:20]}...")  # 디버깅용
 
-            return jsonify({
-                "access_token": accessToken,
-                "refresh_token": refreshToken,
+            response_data = {
+                "access_token": access_token,
+                "refresh_token": refresh_token,
                 "token_type": "bearer"
-            })
+            }
+            
+            print("Login successful, returning tokens")
+            return jsonify(response_data)
 
         finally:
             cursor.close()
