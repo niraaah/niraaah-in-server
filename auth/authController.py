@@ -132,7 +132,7 @@ def registerUser():
             if cursor.fetchone():
                 return jsonify({"message": "Email already exists"}), 409
             
-            # 비밀번호 해싱 - salt ���성 및 해싱
+            # 비밀번호 해싱 - salt 성 및 해싱
             hashedPassword = bcrypt.hashpw(requestData['password'].encode('utf-8'), bcrypt.gensalt())
             
             # users 테이블이 없으면 생성
@@ -327,24 +327,78 @@ def refreshUserToken():
         print(f"Refresh token error: {str(e)}")
         return jsonify({"message": "Internal server error"}), 500
 
-@authBlueprint.route('/profile', methods=['GET'])
+@authBlueprint.route('/profile', methods=['GET', 'PUT'])
 @requireAuthentication
-def getUserProfile():
-    try:
-        # g.currentUser는 requireAuthentication 데코레이터에서 설정됨
-        userInfo = g.currentUser
-
-        # 민감한 정보를 제외한 사용자 프로필 데이터 반환
-        profile = {
-            "user_id": userInfo['user_id'],
-            "email": userInfo['email'],
-            "name": userInfo['name'],
-            "phone": userInfo['phone'],
-            "birth_date": userInfo['birth_date'].isoformat() if userInfo['birth_date'] else None
-        }
-        
-        return jsonify(profile)
-
-    except Exception as e:
-        print(f"Profile error: {str(e)}")
-        return jsonify({"message": "Internal server error"}), 500
+def userProfile():
+    if request.method == 'GET':
+        try:
+            userInfo = g.currentUser
+            profile = {
+                "user_id": userInfo['user_id'],
+                "email": userInfo['email'],
+                "name": userInfo['name'],
+                "phone": userInfo['phone'],
+                "birth_date": userInfo['birth_date'].isoformat() if userInfo['birth_date'] else None
+            }
+            return jsonify(profile)
+        except Exception as e:
+            print(f"Profile error: {str(e)}")
+            return jsonify({"message": "Internal server error"}), 500
+            
+    elif request.method == 'PUT':
+        try:
+            requestData = request.get_json()
+            userInfo = g.currentUser
+            database = getDatabaseConnection()
+            cursor = database.cursor(dictionary=True)
+            
+            try:
+                updates = []
+                values = []
+                
+                # 비밀번호 변경 처리
+                if 'current_password' in requestData and 'new_password' in requestData:
+                    cursor.execute(
+                        "SELECT password_hash FROM users WHERE user_id=%s",
+                        (userInfo['user_id'],)
+                    )
+                    stored = cursor.fetchone()
+                    
+                    if not bcrypt.checkpw(
+                        requestData['current_password'].encode('utf-8'),
+                        stored['password_hash'].encode('utf-8')
+                    ):
+                        return jsonify({"message": "Current password is incorrect"}), 400
+                        
+                    hashedNewPassword = bcrypt.hashpw(
+                        requestData['new_password'].encode('utf-8'),
+                        bcrypt.gensalt()
+                    )
+                    updates.append("password_hash=%s")
+                    values.append(hashedNewPassword)
+                
+                # 기본 정보 업데이트
+                if 'name' in requestData:
+                    updates.append("name=%s")
+                    values.append(requestData['name'])
+                if 'phone' in requestData:
+                    updates.append("phone=%s")
+                    values.append(requestData['phone'])
+                if 'birth_date' in requestData:
+                    updates.append("birth_date=%s")
+                    values.append(requestData['birth_date'])
+                
+                if updates:
+                    values.append(userInfo['user_id'])
+                    sql = f"UPDATE users SET {', '.join(updates)} WHERE user_id=%s"
+                    cursor.execute(sql, values)
+                    database.commit()
+                    
+                return jsonify({"message": "Profile updated successfully"})
+                
+            finally:
+                cursor.close()
+                
+        except Exception as e:
+            print(f"Profile update error: {str(e)}")
+            return jsonify({"message": "Internal server error"}), 500
