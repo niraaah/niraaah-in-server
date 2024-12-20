@@ -348,12 +348,20 @@ def createJob():
         # 회사 ID가 0이면 새로운 회사 생성
         company_id = requestData['company_id']
         if company_id == 0:
-            cursor.execute(
-                "INSERT INTO companies (name) VALUES (%s)",
-                ("Example Company",)  # 또는 requestData에서 회사명을 받아올 수 있음
-            )
-            company_id = cursor.lastrowid
-            database.commit()
+            # 회사명 중복 체크
+            company_name = requestData.get('company_name', 'New Company')  # 회사명이 없으면 기본값 사용
+            cursor.execute("SELECT company_id FROM companies WHERE name = %s", (company_name,))
+            existing_company = cursor.fetchone()
+            
+            if existing_company:
+                company_id = existing_company['company_id']
+            else:
+                cursor.execute(
+                    "INSERT INTO companies (name) VALUES (%s)",
+                    (company_name,)
+                )
+                company_id = cursor.lastrowid
+                database.commit()
 
         # 날짜 형식 변환
         deadline_date = None
