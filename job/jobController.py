@@ -115,16 +115,14 @@ def listJobs():
         jp.education_level,
         jp.employment_type,
         jp.salary_info,
-        jp.location_id,
-        CONCAT(l.city, ' ', COALESCE(l.district, '')) as location,
+        CONCAT(jp.location_city, ' ', COALESCE(jp.location_district, '')) as location,
         jp.deadline_date,
         jp.view_count,
         jp.created_at,
-        GROUP_CONCAT(DISTINCT ts.name) as tech_stacks,
+        GROUP_CONCAT(DISTINCT ts.stack_name) as tech_stacks,
         GROUP_CONCAT(DISTINCT jc.name) as job_categories
     FROM job_postings jp
     JOIN companies c ON jp.company_id = c.company_id
-    LEFT JOIN locations l ON jp.location_id = l.location_id
     LEFT JOIN posting_tech_stacks pts ON jp.posting_id = pts.posting_id
     LEFT JOIN tech_stacks ts ON pts.stack_id = ts.stack_id
     LEFT JOIN posting_categories pc ON jp.posting_id = pc.posting_id
