@@ -126,6 +126,8 @@ def getJobDetail(jobId):
     cursor = database.cursor(dictionary=True)
 
     try:
+        print(f"Fetching job details for ID: {jobId}")
+        
         cursor.execute("UPDATE job_postings SET view_count = view_count + 1 WHERE posting_id = %s", (jobId,))
         database.commit()
 
@@ -150,8 +152,11 @@ def getJobDetail(jobId):
 
         cursor.execute(query, (jobId,))
         job = cursor.fetchone()
+        
+        print(f"Query result: {job}")
 
         if not job:
+            print(f"No job found with ID: {jobId}")
             return jsonify({"message": "Job not found"}), 404
 
         if job['tech_stacks']:
@@ -347,7 +352,7 @@ def createJob():
     cursor = database.cursor(dictionary=True)
 
     try:
-        # 회사 ID가 0���면 새로운 회사 생성
+        # 회사 ID가 0이면 새로운 회사 생성
         company_id = requestData['company_id']
         if company_id == 0:
             # 회사명 중복 체크
@@ -415,8 +420,8 @@ def createJob():
             locationId, deadline_date)
         )
         
-        # 여기서 posting_id를 가져옴
         posting_id = cursor.lastrowid
+        print(f"Created job posting with ID: {posting_id}")
         database.commit()
 
         # tech_stacks 처리
