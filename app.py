@@ -7,11 +7,13 @@ from user.userController import userBlueprint
 from utils.dbHelper import closeDatabaseConnection
 
 app = Flask(__name__)
-CORS(app, 
-     resources={r"/*": {"origins": "*"}},
-     supports_credentials=True,
-     allow_headers=["Content-Type", "Authorization"],
-     methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"])
+CORS(app, resources={r"/*": {
+    "origins": ["http://localhost:3000", "http://113.198.66.75:10031"],
+    "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    "allow_headers": ["Content-Type", "Authorization"],
+    "expose_headers": ["Content-Type", "Authorization"],
+    "supports_credentials": True
+}})
 
 @app.after_request
 def after_request(response):
