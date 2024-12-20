@@ -5,6 +5,46 @@ from utils.dbHelper import getDatabaseConnection
 
 jobBlueprint = Blueprint('job', __name__)
 
+def createTables(cursor):
+    # 채용 공고 테이블
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS job_postings (
+            posting_id INT PRIMARY KEY AUTO_INCREMENT,
+            company_id INT NOT NULL,
+            title VARCHAR(200) NOT NULL,
+            job_description TEXT NOT NULL,
+            experience_level VARCHAR(50),
+            education_level VARCHAR(50),
+            employment_type VARCHAR(50),
+            salary_info VARCHAR(100),
+            location_city VARCHAR(100),
+            location_district VARCHAR(100),
+            deadline_date DATE,
+            status VARCHAR(20) DEFAULT 'active',
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+        )
+    """)
+
+    # 기술 스택 테이블
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS tech_stacks (
+            stack_id INT PRIMARY KEY AUTO_INCREMENT,
+            stack_name VARCHAR(50) UNIQUE NOT NULL
+        )
+    """)
+
+    # 채용 공고-기술 스택 연결 테이블
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS posting_tech_stacks (
+            posting_id INT,
+            stack_id INT,
+            PRIMARY KEY (posting_id, stack_id),
+            FOREIGN KEY (posting_id) REFERENCES job_postings(posting_id) ON DELETE CASCADE,
+            FOREIGN KEY (stack_id) REFERENCES tech_stacks(stack_id) ON DELETE CASCADE
+        )
+    """)
+
 @jobBlueprint.route('/', methods=['GET'], endpoint='list_jobs')
 def listJobs():
     searchKeyword = request.args.get('keyword')
@@ -98,6 +138,9 @@ def listJobs():
     cursor = database.cursor(dictionary=True)
 
     try:
+        # 테이블이 없으면 생성
+        createTables(cursor)
+        
         cursor.execute(query, queryParams)
         jobs = cursor.fetchall()
 
