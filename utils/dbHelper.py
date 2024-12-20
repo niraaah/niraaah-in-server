@@ -162,6 +162,19 @@ def initializeTables(cursor):
         )
     """)
 
+    # bookmarks 테이블 생성
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS bookmarks (
+            bookmark_id INT PRIMARY KEY AUTO_INCREMENT,
+            user_id INT NOT NULL,
+            posting_id INT NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (user_id) REFERENCES users(user_id),
+            FOREIGN KEY (posting_id) REFERENCES job_postings(posting_id),
+            UNIQUE KEY unique_bookmark (user_id, posting_id)
+        )
+    """)
+
 def getDatabaseConnection():
     if 'database' not in g:
         for _ in range(RETRY_COUNT):

@@ -6,6 +6,7 @@ from job.jobController import jobBlueprint
 from user.userController import userBlueprint
 from utils.dbHelper import closeDatabaseConnection
 from application.applicationController import applicationBlueprint
+from bookmark.bookmarkController import bookmarkBlueprint
 
 app = Flask(__name__)
 CORS(app, resources={r"/*": {"origins": "*"}})
@@ -36,6 +37,7 @@ app.register_blueprint(authBlueprint, url_prefix='/auth')
 app.register_blueprint(jobBlueprint, url_prefix='/jobs')
 app.register_blueprint(userBlueprint, url_prefix='/users')
 app.register_blueprint(applicationBlueprint, url_prefix='/applications')
+app.register_blueprint(bookmarkBlueprint, url_prefix='/bookmarks')
 
 # 데이터베이스 연결 해제를 위한 teardown 함수 등록
 @app.teardown_appcontext
