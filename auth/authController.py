@@ -45,44 +45,49 @@ def generateRefreshToken(data: dict):
     return jwt.encode(tokenData, SECRET_KEY, algorithm=ALGORITHM)
 
 def getCurrentUser():
-    authHeader = request.headers.get('Authorization')
-    print(f"Auth header: {authHeader}")
-    
-    if not authHeader or not authHeader.startswith('Bearer '):
-        print("No valid Authorization header")
-        return None
-
-    token = authHeader.split(' ')[1]
-    print(f"Token: {token[:20]}...")
-    
     try:
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        print(f"Decoded payload: {payload}")
+        authHeader = request.headers.get('Authorization')
+        print(f"Auth header: {authHeader}")
         
-        userId = int(payload.get("sub"))
-        print(f"User ID: {userId}")
-
-        database = getDatabaseConnection()
-        cursor = database.cursor(dictionary=True)
-        cursor.execute(
-            """
-            SELECT user_id, email, name, phone, birth_date 
-            FROM users 
-            WHERE user_id=%s
-            """,
-            (userId,)
-        )
-        userInfo = cursor.fetchone()
-        cursor.close()
-
-        if not userInfo:
-            print("User not found in database")
+        if not authHeader:
+            return None
+            
+        if not authHeader.startswith('Bearer '):
             return None
 
-        return userInfo
+        token = authHeader.split(' ')[1]
+        print(f"Token: {token}")
+        
+        try:
+            payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+            userId = payload.get("sub")
+            if not userId:
+                return None
 
-    except (JWTError, ValueError) as e:
-        print(f"Token validation error: {str(e)}")
+            database = getDatabaseConnection()
+            cursor = database.cursor(dictionary=True)
+            
+            try:
+                cursor.execute(
+                    """
+                    SELECT user_id, email, name, phone, birth_date 
+                    FROM users 
+                    WHERE user_id = %s
+                    """,
+                    (userId,)
+                )
+                userInfo = cursor.fetchone()
+                return userInfo
+                
+            finally:
+                cursor.close()
+                
+        except Exception as e:
+            print(f"Token decode error: {str(e)}")
+            return None
+            
+    except Exception as e:
+        print(f"Auth error: {str(e)}")
         return None
 
 def requireAuthentication(f):
@@ -224,7 +229,7 @@ def loginUser():
             if not bcrypt.checkpw(password.encode('utf-8'), stored_hash):
                 return jsonify({"message": "Invalid credentials"}), 401
 
-            # ���큰 생성 및 응답
+            # 토큰 생성 및 응답
             token_data = {"sub": str(userInfo['user_id'])}
             
             return jsonify({
@@ -362,7 +367,7 @@ def getUserProfile():
                 if not bcrypt.checkpw(data['current_password'].encode('utf-8'), current['password'].encode('utf-8')):
                     return jsonify({"message": "Current password is incorrect"}), 400
                     
-                # 새 비밀���호 해싱
+                # 새 비밀번호 해싱
                 hashedPassword = bcrypt.hashpw(data['new_password'].encode('utf-8'), bcrypt.gensalt())
                 updateFields.append("password = %s")
                 values.append(hashedPassword)
