@@ -7,12 +7,7 @@ from user.userController import userBlueprint
 from utils.dbHelper import closeDatabaseConnection
 
 app = Flask(__name__)
-CORS(app, resources={r"/*": {
-    "origins": "*",
-    "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    "allow_headers": ["Content-Type", "Authorization", "Access-Control-Allow-Credentials"],
-    "supports_credentials": True
-}})
+CORS(app, resources={r"/*": {"origins": "*"}})
 
 # Swagger 설정
 SWAGGER_URL = '/api/docs'
