@@ -107,6 +107,28 @@ def initializeTables(cursor):
             VALUES (%s)
         """, (category,))
 
+    # job_postings 테이블에 누락된 컬럼 추가
+    try:
+        cursor.execute("""
+            ALTER TABLE job_postings 
+            ADD COLUMN IF NOT EXISTS job_description TEXT AFTER title,
+            ADD COLUMN IF NOT EXISTS salary_info VARCHAR(200) AFTER employment_type,
+            ADD COLUMN IF NOT EXISTS view_count INT DEFAULT 0 AFTER status
+        """)
+    except mysql.connector.Error as err:
+        print(f"Warning: {err}")  # 이미 컬럼이 존재하는 경우 무시
+        
+    # job_tech_stacks 테이블이 없으면 생성
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS job_tech_stacks (
+            posting_id INT,
+            stack_id INT,
+            PRIMARY KEY (posting_id, stack_id),
+            FOREIGN KEY (posting_id) REFERENCES job_postings(posting_id),
+            FOREIGN KEY (stack_id) REFERENCES tech_stacks(stack_id)
+        )
+    """)
+
 def getDatabaseConnection():
     if 'database' not in g:
         for _ in range(RETRY_COUNT):
