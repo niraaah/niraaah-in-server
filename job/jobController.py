@@ -443,14 +443,14 @@ def createJob():
             """
             INSERT INTO job_postings(
                 company_id, title, job_description, experience_level,
-                education_level, employment_type, salary_info,
+                education_level, employment_type, salary_range,
                 location_city, location_district,
                 deadline_date, status, view_count
             ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 'active', 0)
             """,
             (requestData['company_id'], requestData['title'], requestData['job_description'],
             requestData.get('experience_level'), requestData.get('education_level'),
-            requestData.get('employment_type'), requestData.get('salary_info'),
+            requestData.get('employment_type'), requestData.get('salary_range'),
             requestData['location'].get('city'), requestData['location'].get('district'),
             requestData.get('deadline_date'))
         )
