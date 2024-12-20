@@ -23,28 +23,25 @@ def listJobs():
     query = """
     SELECT DISTINCT
         jp.posting_id,
-        c.name as company_name,
         jp.title,
         jp.job_description,
+        jp.job_link,
         jp.experience_level,
         jp.education_level,
         jp.employment_type,
         jp.salary_info,
-        jp.location_id,
-        CONCAT(l.city, ' ', COALESCE(l.district, '')) as location,
         jp.deadline_date,
-        jp.view_count,
-        jp.created_at,
+        c.name as company_name,
+        CONCAT(l.city, ' ', COALESCE(l.district, '')) as location,
         GROUP_CONCAT(DISTINCT ts.name) as tech_stacks,
         GROUP_CONCAT(DISTINCT jc.name) as job_categories
     FROM job_postings jp
-    JOIN companies c ON jp.company_id = c.company_id
+    LEFT JOIN companies c ON jp.company_id = c.company_id
     LEFT JOIN locations l ON jp.location_id = l.location_id
-    LEFT JOIN posting_tech_stacks pts ON jp.posting_id = pts.posting_id
-    LEFT JOIN tech_stacks ts ON pts.stack_id = ts.stack_id
-    LEFT JOIN posting_categories pc ON jp.posting_id = pc.posting_id
-    LEFT JOIN job_categories jc ON pc.category_id = jc.category_id
-    WHERE jp.status = 'active'
+    LEFT JOIN job_tech_stacks jts ON jp.posting_id = jts.posting_id
+    LEFT JOIN tech_stacks ts ON jts.stack_id = ts.stack_id
+    LEFT JOIN job_posting_categories jpc ON jp.posting_id = jpc.posting_id
+    LEFT JOIN job_categories jc ON jpc.category_id = jc.category_id
     """
 
     queryParams = []
