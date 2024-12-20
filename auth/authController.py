@@ -117,7 +117,7 @@ def registerUser():
         requestData = request.get_json()
         
         # 필수 필드 검증
-        requiredFields = ['email', 'password', 'name']
+        requiredFields = ['email', 'password', 'name', 'phone', 'birth_date']
         if not all(field in requestData for field in requiredFields):
             return jsonify({"message": "Missing required fields"}), 400
 
@@ -132,7 +132,7 @@ def registerUser():
             if cursor.fetchone():
                 return jsonify({"message": "Email already exists"}), 409
             
-            # 비밀번호 해싱 - salt ���성 및 해싱
+            # 비밀번호 해싱 - salt 성 및 해싱
             hashedPassword = bcrypt.hashpw(requestData['password'].encode('utf-8'), bcrypt.gensalt())
             
             # users 테이블이 없으면 생성
@@ -161,8 +161,8 @@ def registerUser():
                 requestData['email'],
                 hashedPassword,
                 requestData['name'],
-                requestData.get('phone'),
-                requestData.get('birth_date'),
+                requestData['phone'],
+                requestData['birth_date'],
                 'active'
             )
             
@@ -268,7 +268,7 @@ def refreshUserToken():
         if refresh_token == "string":
             return jsonify({
                 "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",  # 예제 토큰
-                "refresh_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",  # 예제 토큰
+                "refresh_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",  # 예제 토���
                 "token_type": "bearer"
             })
 
