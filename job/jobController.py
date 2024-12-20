@@ -239,7 +239,7 @@ def createJob():
         # 회사 ID가 0이면 새로운 회사 생성
         company_id = requestData['company_id']
         if company_id == 0:
-            # 회사명 중복 체���
+            # 회사명 중복 체크
             company_name = requestData.get('company_name', 'New Company')  # 회사명이 없으면 기본값 사용
             cursor.execute("SELECT company_id FROM companies WHERE name = %s", (company_name,))
             existing_company = cursor.fetchone()
@@ -350,5 +350,77 @@ def createJob():
     except Exception as e:
         database.rollback()
         return jsonify({"message": str(e)}), 500
+    finally:
+        cursor.close()
+
+def getJobDetail(jobId):
+    database = getDatabaseConnection()
+    cursor = database.cursor(dictionary=True)
+
+    try:
+        print(f"Fetching job details for ID: {jobId}")
+        
+        cursor.execute("UPDATE job_postings SET view_count = view_count + 1 WHERE posting_id = %s", (jobId,))
+        database.commit()
+
+        query = """
+        SELECT 
+            jp.*,
+            c.name as company_name,
+            l.city,
+            l.district,
+            GROUP_CONCAT(DISTINCT ts.name) as tech_stacks,
+            GROUP_CONCAT(DISTINCT jc.name) as job_categories
+        FROM job_postings jp
+        JOIN companies c ON jp.company_id = c.company_id
+        LEFT JOIN locations l ON jp.location_id = l.location_id
+        LEFT JOIN job_tech_stacks jts ON jp.posting_id = jts.posting_id
+        LEFT JOIN tech_stacks ts ON jts.stack_id = ts.stack_id
+        LEFT JOIN job_posting_categories jpc ON jp.posting_id = jpc.posting_id
+        LEFT JOIN job_categories jc ON jpc.category_id = jc.category_id
+        WHERE jp.posting_id = %s AND jp.status != 'deleted'
+        GROUP BY jp.posting_id
+        """
+
+        cursor.execute(query, (jobId,))
+        job = cursor.fetchone()
+        
+        print(f"Query result: {job}")
+
+        if not job:
+            print(f"No job found with ID: {jobId}")
+            return jsonify({"message": "Job not found"}), 404
+
+        if job['tech_stacks']:
+            job['tech_stacks'] = job['tech_stacks'].split(',')
+        else:
+            job['tech_stacks'] = []
+
+        if job['job_categories']:
+            job['job_categories'] = job['job_categories'].split(',')
+        else:
+            job['job_categories'] = []
+
+        relatedQuery = """
+        SELECT DISTINCT jp.posting_id, jp.title, c.name as company_name
+        FROM job_postings jp
+        JOIN companies c ON jp.company_id = c.company_id
+        LEFT JOIN job_tech_stacks jts ON jp.posting_id = jts.posting_id
+        LEFT JOIN tech_stacks ts ON jts.stack_id = ts.stack_id
+        WHERE jp.status = 'active' 
+        AND jp.posting_id != %s
+        AND (jp.company_id = %s 
+        OR ts.name IN (SELECT ts2.name 
+        FROM job_tech_stacks jts2 
+        JOIN tech_stacks ts2 ON jts2.stack_id = ts2.stack_id 
+        WHERE jts2.posting_id = %s))
+        ORDER BY RAND()
+        LIMIT 5
+        """
+
+        cursor.execute(relatedQuery, (jobId, job['company_id'], jobId))
+        relatedJobs = cursor.fetchall()
+
+        return jsonify({"job": job, "related": relatedJobs})
     finally:
         cursor.close()
