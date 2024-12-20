@@ -507,3 +507,20 @@ def createJob():
         return jsonify({"message": str(e)}), 500
     finally:
         cursor.close()
+
+@jobBlueprint.route('/jobs', methods=['GET'])
+def get_jobs():
+    try:
+        cursor = get_db().cursor(dictionary=True)
+        cursor.execute("""
+            SELECT j.*, c.company_name, GROUP_CONCAT(t.stack_name) as tech_stacks
+            FROM job_postings j
+            LEFT JOIN companies c ON j.company_id = c.company_id
+            LEFT JOIN posting_tech_stacks pt ON j.posting_id = pt.posting_id
+            LEFT JOIN tech_stacks t ON pt.stack_id = t.stack_id
+            GROUP BY j.posting_id
+        """)
+        jobs = cursor.fetchall()
+        return jsonify(jobs)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
