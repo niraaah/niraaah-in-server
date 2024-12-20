@@ -336,6 +336,7 @@ def deleteJob(jobId):
         cursor.close()
 
 @jobBlueprint.route('/', methods=['POST'], endpoint='create_job')
+@requireAuthentication
 def createJob():
     requestData = request.get_json()
     if not requestData:
