@@ -139,10 +139,10 @@ def getJobDetail(jobId):
         FROM job_postings jp
         JOIN companies c ON jp.company_id = c.company_id
         LEFT JOIN locations l ON jp.location_id = l.location_id
-        LEFT JOIN posting_tech_stacks pts ON jp.posting_id = pts.posting_id
-        LEFT JOIN tech_stacks ts ON pts.stack_id = ts.stack_id
-        LEFT JOIN posting_categories pc ON jp.posting_id = pc.posting_id
-        LEFT JOIN job_categories jc ON pc.category_id = jc.category_id
+        LEFT JOIN job_tech_stacks jts ON jp.posting_id = jts.posting_id
+        LEFT JOIN tech_stacks ts ON jts.stack_id = ts.stack_id
+        LEFT JOIN job_posting_categories jpc ON jp.posting_id = jpc.posting_id
+        LEFT JOIN job_categories jc ON jpc.category_id = jc.category_id
         WHERE jp.posting_id = %s AND jp.status != 'deleted'
         GROUP BY jp.posting_id
         """
