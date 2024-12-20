@@ -83,3 +83,46 @@ def createApplication():
     except Exception as e:
         print(f"Application error: {str(e)}")
         return jsonify({"message": "Internal server error"}), 500
+
+@applicationBlueprint.route('/<int:applicationId>', methods=['DELETE'])
+@requireAuthentication
+def cancelApplication(applicationId):
+    database = getDatabaseConnection()
+    cursor = database.cursor(dictionary=True)
+
+    try:
+        # 지원서가 존재하고 현재 사용자의 것인지 확인
+        cursor.execute(
+            """
+            SELECT * FROM applications 
+            WHERE application_id = %s AND user_id = %s
+            """,
+            (applicationId, g.currentUser['user_id'])
+        )
+        application = cursor.fetchone()
+
+        if not application:
+            return jsonify({"message": "Application not found"}), 404
+
+        if application['status'] == 'cancelled':
+            return jsonify({"message": "Application already cancelled"}), 400
+
+        # 지원서 상태 업데이트
+        cursor.execute(
+            """
+            UPDATE applications 
+            SET status = 'cancelled', updated_at = CURRENT_TIMESTAMP
+            WHERE application_id = %s
+            """,
+            (applicationId,)
+        )
+        database.commit()
+
+        return jsonify({"message": "Application cancelled successfully"})
+
+    except Exception as e:
+        database.rollback()
+        print(f"Cancel application error: {str(e)}")
+        return jsonify({"message": "Internal server error"}), 500
+    finally:
+        cursor.close()
