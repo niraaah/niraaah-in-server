@@ -49,34 +49,24 @@ def getCurrentUser():
     print(f"Auth header: {authHeader}")
     
     if not authHeader or not authHeader.startswith('Bearer '):
-        # Swagger UI 테스트를 위한 예제 응답
-        if request.headers.get('accept') == '*/*':
-            return {
-                'user_id': 1,
-                'email': 'user@example.com',
-                'name': 'Example User',
-                'phone': '010-1234-5678',
-                'birth_date': None,
-                'status': 'active'
-            }
         print("No valid Authorization header")
         return None
 
     token = authHeader.split(' ')[1]
-    print(f"Token: {token[:20]}...")  # 디버깅 로그
+    print(f"Token: {token[:20]}...")
     
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        print(f"Decoded payload: {payload}")  # 디버깅 로그
+        print(f"Decoded payload: {payload}")
         
         userId = int(payload.get("sub"))
-        print(f"User ID: {userId}")  # 디버깅 로그
+        print(f"User ID: {userId}")
 
         database = getDatabaseConnection()
         cursor = database.cursor(dictionary=True)
         cursor.execute(
             """
-            SELECT user_id, email, name, status, phone, birth_date 
+            SELECT user_id, email, name, phone, birth_date 
             FROM users 
             WHERE user_id=%s
             """,
@@ -86,17 +76,13 @@ def getCurrentUser():
         cursor.close()
 
         if not userInfo:
-            print("User not found in database")  # 디버깅 로그
-            return None
-            
-        if userInfo['status'] in ['inactive', 'blocked']:
-            print(f"User status is {userInfo['status']}")  # 디버깅 로그
+            print("User not found in database")
             return None
 
         return userInfo
 
     except (JWTError, ValueError) as e:
-        print(f"Token validation error: {str(e)}")  # 디버깅 로그
+        print(f"Token validation error: {str(e)}")
         return None
 
 def requireAuthentication(f):
@@ -238,7 +224,7 @@ def loginUser():
             if not bcrypt.checkpw(password.encode('utf-8'), stored_hash):
                 return jsonify({"message": "Invalid credentials"}), 401
 
-            # 토큰 생성 및 응답
+            # ���큰 생성 및 응답
             token_data = {"sub": str(userInfo['user_id'])}
             
             return jsonify({
@@ -376,7 +362,7 @@ def getUserProfile():
                 if not bcrypt.checkpw(data['current_password'].encode('utf-8'), current['password'].encode('utf-8')):
                     return jsonify({"message": "Current password is incorrect"}), 400
                     
-                # 새 비밀번호 해싱
+                # 새 비밀���호 해싱
                 hashedPassword = bcrypt.hashpw(data['new_password'].encode('utf-8'), bcrypt.gensalt())
                 updateFields.append("password = %s")
                 values.append(hashedPassword)
