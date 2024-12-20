@@ -114,13 +114,21 @@ def requireAuthentication(f):
 @authBlueprint.route('/register', methods=['POST'])
 def registerUser():
     try:
+        print(f"Content-Type: {request.content_type}")  # Content-Type 확인
+        print(f"Raw Data: {request.get_data()}")        # 원시 데이터 확인
+        
         try:
-            requestData = request.get_json()
+            requestData = request.get_json(force=True)  # force=True로 Content-Type 무시
             if not requestData:
                 return jsonify({"message": "No input data provided"}), 400
         except Exception as e:
             print(f"JSON decode error: {str(e)}")
-            return jsonify({"message": "Invalid JSON format"}), 400
+            return jsonify({
+                "message": "Invalid JSON format",
+                "error": str(e),
+                "content_type": request.content_type,
+                "data": request.get_data(as_text=True)
+            }), 400
         
         # 필수 필드 검증
         requiredFields = ['email', 'password', 'name', 'phone', 'birth_date']
