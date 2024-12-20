@@ -1,7 +1,7 @@
 from datetime import datetime, timedelta
 from typing import Optional
 import base64
-from flask import Blueprint, request, jsonify, g, make_response
+from flask import Blueprint, request, jsonify, g
 from jose import JWTError, jwt
 import secrets
 from utils.dbHelper import getDatabaseConnection
@@ -142,7 +142,7 @@ def registerUser():
         except Exception as e:
             if database:
                 database.rollback()
-            print(f"Database error: {str(e)}")
+            print(f"Database error: {str(e)}")  # 로깅 추가
             return jsonify({"message": "Internal server error"}), 500
             
         finally:
@@ -150,7 +150,7 @@ def registerUser():
                 cursor.close()
             
     except Exception as e:
-        print(f"Request error: {str(e)}")
+        print(f"Request error: {str(e)}")  # 로깅 추가
         return jsonify({"message": "Internal server error"}), 500
 
 # Login endpoint
