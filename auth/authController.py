@@ -45,13 +45,21 @@ def generateRefreshToken(data: dict):
 
 def getCurrentUser():
     authHeader = request.headers.get('Authorization')
+    print(f"Auth header: {authHeader}")  # 디버깅 로그
+    
     if not authHeader or not authHeader.startswith('Bearer '):
+        print("No valid Authorization header")  # 디버깅 로그
         return None
 
     token = authHeader.split(' ')[1]
+    print(f"Token: {token[:20]}...")  # 디버깅 로그
+    
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        print(f"Decoded payload: {payload}")  # 디버깅 로그
+        
         userId = int(payload.get("sub"))
+        print(f"User ID: {userId}")  # 디버깅 로그
 
         database = getDatabaseConnection()
         cursor = database.cursor(dictionary=True)
@@ -66,21 +74,31 @@ def getCurrentUser():
         userInfo = cursor.fetchone()
         cursor.close()
 
-        if not userInfo or userInfo['status'] in ['inactive', 'blocked']:
+        if not userInfo:
+            print("User not found in database")  # 디버깅 로그
+            return None
+            
+        if userInfo['status'] in ['inactive', 'blocked']:
+            print(f"User status is {userInfo['status']}")  # 디버깅 로그
             return None
 
         return userInfo
 
-    except (JWTError, ValueError):
+    except (JWTError, ValueError) as e:
+        print(f"Token validation error: {str(e)}")  # 디버깅 로그
         return None
 
 def requireAuthentication(f):
     def decoratedFunction(*args, **kwargs):
         userInfo = getCurrentUser()
         if userInfo is None:
-            return jsonify({"message": "Authentication required"}), 401
+            # 더 자세한 오류 메시지 반환
+            if not request.headers.get('Authorization'):
+                return jsonify({"message": "No Authorization header"}), 401
+            return jsonify({"message": "Invalid or expired token"}), 401
         g.currentUser = userInfo
         return f(*args, **kwargs)
+    decoratedFunction.__name__ = f.__name__
     return decoratedFunction
 
 @authBlueprint.route('/register', methods=['POST'])
