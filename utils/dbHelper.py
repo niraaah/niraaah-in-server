@@ -31,30 +31,12 @@ CONNECTION_TIMEOUT = 3
 databasePool = mysql.connector.pooling.MySQLConnectionPool(**poolConfig)
 
 def initializeTables(cursor):
-    # users 테이블 생성
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS users (
-            user_id INT PRIMARY KEY AUTO_INCREMENT,
-            email VARCHAR(100) UNIQUE NOT NULL,
-            password VARCHAR(200) NOT NULL,
-            name VARCHAR(50) NOT NULL,
-            phone VARCHAR(20),
-            birth_date DATE,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-        )
-    """)
-
-    # job_categories 테이블 생성
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS job_categories (
-            category_id INT PRIMARY KEY AUTO_INCREMENT,
-            name VARCHAR(50) NOT NULL,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        )
-    """)
-
-    # job_postings 테이블 생성
+    # 기존 테이블 삭제 (순서 중요)
+    cursor.execute("DROP TABLE IF EXISTS job_tech_stacks")
+    cursor.execute("DROP TABLE IF EXISTS job_posting_categories")
+    cursor.execute("DROP TABLE IF EXISTS job_postings")
+    
+    # job_postings 테이블 다시 생성
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS job_postings (
             posting_id INT PRIMARY KEY AUTO_INCREMENT,
@@ -77,7 +59,7 @@ def initializeTables(cursor):
         )
     """)
 
-    # job_posting_categories 테이블 생성
+    # 관련 테이블들 다시 생성
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS job_posting_categories (
             posting_id INT,
@@ -88,7 +70,6 @@ def initializeTables(cursor):
         )
     """)
 
-    # job_tech_stacks 테이블 생성
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS job_tech_stacks (
             posting_id INT,
@@ -96,6 +77,29 @@ def initializeTables(cursor):
             PRIMARY KEY (posting_id, stack_id),
             FOREIGN KEY (posting_id) REFERENCES job_postings(posting_id),
             FOREIGN KEY (stack_id) REFERENCES tech_stacks(stack_id)
+        )
+    """)
+
+    # users 테이블 생성
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS users (
+            user_id INT PRIMARY KEY AUTO_INCREMENT,
+            email VARCHAR(100) UNIQUE NOT NULL,
+            password VARCHAR(200) NOT NULL,
+            name VARCHAR(50) NOT NULL,
+            phone VARCHAR(20),
+            birth_date DATE,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+        )
+    """)
+
+    # job_categories 테이블 생성
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS job_categories (
+            category_id INT PRIMARY KEY AUTO_INCREMENT,
+            name VARCHAR(50) NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     """)
 
