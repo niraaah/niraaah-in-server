@@ -110,25 +110,28 @@ def registerUser():
                 CREATE TABLE IF NOT EXISTS users (
                     user_id INT PRIMARY KEY AUTO_INCREMENT,
                     email VARCHAR(100) UNIQUE NOT NULL,
-                    password VARCHAR(255) NOT NULL,
+                    password_hash VARCHAR(255) NOT NULL,
                     name VARCHAR(100) NOT NULL,
                     phone VARCHAR(20),
                     birth_date DATE,
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                    status VARCHAR(20) DEFAULT 'active',
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    last_login TIMESTAMP NULL
                 )
             """)
             
             # 사용자 정보 삽입
             sql = """
-                INSERT INTO users (email, password, name, phone, birth_date)
-                VALUES (%s, %s, %s, %s, %s)
+                INSERT INTO users (email, password_hash, name, phone, birth_date, status)
+                VALUES (%s, %s, %s, %s, %s, %s)
             """
             values = (
                 requestData['email'],
                 hashedPassword,
                 requestData['name'],
                 requestData.get('phone'),  # Optional
-                requestData.get('birth_date')  # Optional
+                requestData.get('birth_date'),  # Optional
+                'active'  # 기본 상태
             )
             
             cursor.execute(sql, values)
