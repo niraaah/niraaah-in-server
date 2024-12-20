@@ -6,6 +6,7 @@ from jose import JWTError, jwt
 import secrets
 from utils.dbHelper import getDatabaseConnection
 import bcrypt
+import json
 
 authBlueprint = Blueprint('auth', __name__)
 
@@ -118,13 +119,15 @@ def registerUser():
         print(f"Raw Data: {request.get_data()}")
         
         try:
-            requestData = request.get_json(force=True)
+            # 원시 데이터를 가져와서 제어 문자 제거
+            raw_data = request.get_data().decode('utf-8')
+            clean_data = ''.join(char for char in raw_data if ord(char) >= 32 or char in '\n\r\t')
+            
+            # 정리된 데이터로 JSON 파싱
+            requestData = json.loads(clean_data)
+            
             if not requestData:
                 return jsonify({"message": "No input data provided"}), 400
-                
-            # 이메일 주소 정리 (제어 문자 제거)
-            if 'email' in requestData:
-                requestData['email'] = ''.join(char for char in requestData['email'] if ord(char) >= 32)
                 
         except Exception as e:
             print(f"JSON decode error: {str(e)}")
