@@ -147,6 +147,21 @@ def initializeTables(cursor):
         )
     """)
 
+    # applications 테이블 생성
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS applications (
+            application_id INT PRIMARY KEY AUTO_INCREMENT,
+            user_id INT NOT NULL,
+            posting_id INT NOT NULL,
+            cover_letter TEXT,
+            status VARCHAR(20) DEFAULT 'pending',
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            FOREIGN KEY (user_id) REFERENCES users(user_id),
+            FOREIGN KEY (posting_id) REFERENCES job_postings(posting_id)
+        )
+    """)
+
 def getDatabaseConnection():
     if 'database' not in g:
         for _ in range(RETRY_COUNT):
