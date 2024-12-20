@@ -298,3 +298,25 @@ def refreshUserToken():
     except Exception as e:
         print(f"Refresh token error: {str(e)}")
         return jsonify({"message": "Internal server error"}), 500
+
+@authBlueprint.route('/profile', methods=['GET'])
+@requireAuthentication
+def getUserProfile():
+    try:
+        # g.currentUser는 requireAuthentication 데코레이터에서 설정됨
+        userInfo = g.currentUser
+
+        # 민감한 정보를 제외한 사용자 프로필 데이터 반환
+        profile = {
+            "user_id": userInfo['user_id'],
+            "email": userInfo['email'],
+            "name": userInfo['name'],
+            "phone": userInfo['phone'],
+            "birth_date": userInfo['birth_date'].isoformat() if userInfo['birth_date'] else None
+        }
+        
+        return jsonify(profile)
+
+    except Exception as e:
+        print(f"Profile error: {str(e)}")
+        return jsonify({"message": "Internal server error"}), 500
