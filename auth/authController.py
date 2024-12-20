@@ -174,21 +174,21 @@ def registerUser():
 @authBlueprint.route('/login', methods=['POST'])
 def loginUser():
     try:
-        username = request.form.get('username')
+        email = request.form.get('email')
         password = request.form.get('password')
 
-        if not username or not password:
-            return jsonify({"message": "Missing username or password"}), 400
+        if not email or not password:
+            return jsonify({"message": "Missing email or password"}), 400
 
         database = getDatabaseConnection()
         cursor = database.cursor(dictionary=True)
 
         try:
-            print(f"Attempting login with username: {username}")
+            print(f"Attempting login with email: {email}")
             
-            email = username.replace('%40', '@')
+            email = email.replace('%40', '@')
             cursor.execute(
-                "SELECT user_id, password_hash FROM users WHERE email=%s",
+                "SELECT user_id, password FROM users WHERE email=%s",
                 (email,)
             )
             userInfo = cursor.fetchone()
@@ -199,7 +199,7 @@ def loginUser():
 
             print(f"Found user with id: {userInfo['user_id']}")
             
-            stored_hash = userInfo['password_hash']
+            stored_hash = userInfo['password']
             if isinstance(stored_hash, str):
                 stored_hash = stored_hash.encode('utf-8')
                 
