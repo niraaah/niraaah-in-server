@@ -102,7 +102,7 @@ def registerUser():
             if cursor.fetchone():
                 return jsonify({"message": "Email already exists"}), 409
             
-            # 비밀번호 해싱
+            # 비밀번호 해싱 - salt 생성 및 해싱
             hashedPassword = bcrypt.hashpw(requestData['password'].encode('utf-8'), bcrypt.gensalt())
             
             # users 테이블이 없으면 생성
@@ -162,7 +162,6 @@ def registerUser():
 @authBlueprint.route('/login', methods=['POST'])
 def loginUser():
     try:
-        # form-urlencoded 데이터 파싱
         username = request.form.get('username')
         password = request.form.get('password')
 
@@ -173,8 +172,10 @@ def loginUser():
         cursor = database.cursor(dictionary=True)
 
         try:
-            # URL 디코딩된 이메일로 사용자 조회
-            email = username.replace('%40', '@')  # URL 인코딩된 @ 기호 처리
+            # 디버깅을 위한 로그 추가
+            print(f"Attempting login with username: {username}")
+            
+            email = username.replace('%40', '@')
             cursor.execute(
                 "SELECT user_id, password_hash FROM users WHERE email=%s",
                 (email,)
@@ -182,22 +183,26 @@ def loginUser():
             userInfo = cursor.fetchone()
 
             if not userInfo:
+                print(f"User not found for email: {email}")
                 return jsonify({"message": "Invalid credentials"}), 401
 
-            # 비밀번호 검증
-            if not bcrypt.checkpw(password.encode('utf-8'), userInfo['password_hash'].encode('utf-8')):
+            # 디버깅을 위한 로그 추가
+            print(f"Found user with id: {userInfo['user_id']}")
+            
+            # 저장된 해시와 입력된 비밀번호 비교
+            stored_hash = userInfo['password_hash']
+            if isinstance(stored_hash, str):
+                stored_hash = stored_hash.encode('utf-8')
+                
+            if not bcrypt.checkpw(password.encode('utf-8'), stored_hash):
+                print("Password verification failed")
                 return jsonify({"message": "Invalid credentials"}), 401
 
+            print("Password verified successfully")
+            
             # 토큰 생성
             accessToken = generateAccessToken(data={"sub": userInfo['user_id']})
             refreshToken = generateRefreshToken(data={"sub": userInfo['user_id']})
-
-            # 마지막 로그인 시간 업데이트
-            cursor.execute(
-                "UPDATE users SET last_login=NOW() WHERE user_id=%s",
-                (userInfo['user_id'],)
-            )
-            database.commit()
 
             return jsonify({
                 "access_token": accessToken,
