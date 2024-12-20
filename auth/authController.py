@@ -132,38 +132,20 @@ def registerUser():
             if cursor.fetchone():
                 return jsonify({"message": "Email already exists"}), 409
             
-            # 비밀번호 해싱 - salt 성 및 해싱
+            # 비밀번호 해싱
             hashedPassword = bcrypt.hashpw(requestData['password'].encode('utf-8'), bcrypt.gensalt())
-            
-            # users 테이블이 없으면 생성
-            cursor.execute("""
-                CREATE TABLE IF NOT EXISTS users (
-                    user_id INT PRIMARY KEY AUTO_INCREMENT,
-                    email VARCHAR(100) UNIQUE NOT NULL,
-                    username VARCHAR(100) NOT NULL,
-                    password_hash VARCHAR(255) NOT NULL,
-                    name VARCHAR(100) NOT NULL,
-                    phone VARCHAR(20),
-                    birth_date DATE,
-                    status VARCHAR(20) DEFAULT 'active',
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    last_login TIMESTAMP NULL
-                )
-            """)
             
             # 사용자 정보 삽입
             sql = """
-                INSERT INTO users (email, username, password_hash, name, phone, birth_date, status)
-                VALUES (%s, %s, %s, %s, %s, %s, %s)
+                INSERT INTO users (email, password, name, phone, birth_date)
+                VALUES (%s, %s, %s, %s, %s)
             """
             values = (
-                requestData['email'],
                 requestData['email'],
                 hashedPassword,
                 requestData['name'],
                 requestData['phone'],
-                requestData['birth_date'],
-                'active'
+                requestData['birth_date']
             )
             
             cursor.execute(sql, values)
@@ -268,7 +250,7 @@ def refreshUserToken():
         if refresh_token == "string":
             return jsonify({
                 "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",  # 예제 토큰
-                "refresh_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",  # 예제 토���
+                "refresh_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",  # 예제 토큰
                 "token_type": "bearer"
             })
 
