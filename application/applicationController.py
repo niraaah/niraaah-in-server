@@ -34,44 +34,52 @@ def listApplications():
 @applicationBlueprint.route('/', methods=['POST'])
 @requireAuthentication
 def createApplication():
-    data = request.get_json()
-    if not data:
-        return jsonify({"message": "No input data provided"}), 400
-
-    required_fields = ['posting_id', 'cover_letter']
-    if not all(field in data for field in required_fields):
-        return jsonify({"message": "Missing required fields"}), 400
-
-    database = getDatabaseConnection()
-    cursor = database.cursor(dictionary=True)
-
     try:
-        # 이미 지원한 공고인지 확인
-        cursor.execute(
-            "SELECT * FROM applications WHERE user_id = %s AND posting_id = %s",
-            (g.currentUser['user_id'], data['posting_id'])
-        )
-        if cursor.fetchone():
-            return jsonify({"message": "Already applied to this job"}), 400
+        # multipart/form-data 처리
+        posting_id = request.form.get('posting_id')
+        resume_id = request.form.get('resume_id')
+        cover_letter = request.form.get('cover_letter', '')
+        resume_file = request.files.get('resume_file')
 
-        # 지원서 생성
-        cursor.execute(
-            """
-            INSERT INTO applications (
-                user_id, posting_id, cover_letter, status
-            ) VALUES (%s, %s, %s, 'pending')
-            """,
-            (g.currentUser['user_id'], data['posting_id'], data['cover_letter'])
-        )
-        database.commit()
+        if not posting_id:
+            return jsonify({"message": "posting_id is required"}), 400
 
-        return jsonify({
-            "message": "Application submitted successfully",
-            "application_id": cursor.lastrowid
-        }), 201
+        database = getDatabaseConnection()
+        cursor = database.cursor(dictionary=True)
+
+        try:
+            # 이미 지원한 공고인지 확인
+            cursor.execute(
+                "SELECT * FROM applications WHERE user_id = %s AND posting_id = %s",
+                (g.currentUser['user_id'], posting_id)
+            )
+            if cursor.fetchone():
+                return jsonify({"message": "Already applied to this job"}), 400
+
+            # 지원서 생성
+            cursor.execute(
+                """
+                INSERT INTO applications (
+                    user_id, posting_id, cover_letter, status
+                ) VALUES (%s, %s, %s, 'pending')
+                """,
+                (g.currentUser['user_id'], posting_id, cover_letter)
+            )
+            database.commit()
+
+            # TODO: 이력서 파일 처리 로직 추가
+            if resume_file:
+                # 파일 저장 로직 구현
+                pass
+
+            return jsonify({
+                "message": "Application submitted successfully",
+                "application_id": cursor.lastrowid
+            }), 201
+
+        finally:
+            cursor.close()
 
     except Exception as e:
-        database.rollback()
-        return jsonify({"message": str(e)}), 500
-    finally:
-        cursor.close() 
+        print(f"Application error: {str(e)}")
+        return jsonify({"message": "Internal server error"}), 500
