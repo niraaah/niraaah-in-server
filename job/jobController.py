@@ -21,6 +21,7 @@ def createTables(cursor):
             location_district VARCHAR(100),
             deadline_date DATE,
             status VARCHAR(20) DEFAULT 'active',
+            view_count INT DEFAULT 0,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
         )
@@ -30,7 +31,8 @@ def createTables(cursor):
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS tech_stacks (
             stack_id INT PRIMARY KEY AUTO_INCREMENT,
-            stack_name VARCHAR(50) UNIQUE NOT NULL
+            stack_name VARCHAR(50) UNIQUE NOT NULL,
+            category VARCHAR(50) DEFAULT 'Other'
         )
     """)
 
@@ -42,6 +44,49 @@ def createTables(cursor):
             PRIMARY KEY (posting_id, stack_id),
             FOREIGN KEY (posting_id) REFERENCES job_postings(posting_id) ON DELETE CASCADE,
             FOREIGN KEY (stack_id) REFERENCES tech_stacks(stack_id) ON DELETE CASCADE
+        )
+    """)
+
+    # 직무 카테고리 테이블
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS job_categories (
+            category_id INT PRIMARY KEY AUTO_INCREMENT,
+            name VARCHAR(100) UNIQUE NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    """)
+
+    # 채용 공고-직무 카테고리 연결 테이블
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS posting_categories (
+            posting_id INT,
+            category_id INT,
+            PRIMARY KEY (posting_id, category_id),
+            FOREIGN KEY (posting_id) REFERENCES job_postings(posting_id) ON DELETE CASCADE,
+            FOREIGN KEY (category_id) REFERENCES job_categories(category_id) ON DELETE CASCADE
+        )
+    """)
+
+    # 회사 테이블
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS companies (
+            company_id INT PRIMARY KEY AUTO_INCREMENT,
+            name VARCHAR(200) NOT NULL,
+            description TEXT,
+            logo_url VARCHAR(500),
+            website_url VARCHAR(500),
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    """)
+
+    # 위치 테이블
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS locations (
+            location_id INT PRIMARY KEY AUTO_INCREMENT,
+            city VARCHAR(100) NOT NULL,
+            district VARCHAR(100),
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE KEY city_district (city, district)
         )
     """)
 
