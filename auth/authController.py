@@ -114,12 +114,21 @@ def requireAuthentication(f):
 @authBlueprint.route('/register', methods=['POST'])
 def registerUser():
     try:
-        requestData = request.get_json()
+        try:
+            requestData = request.get_json()
+            if not requestData:
+                return jsonify({"message": "No input data provided"}), 400
+        except Exception as e:
+            print(f"JSON decode error: {str(e)}")
+            return jsonify({"message": "Invalid JSON format"}), 400
         
         # 필수 필드 검증
         requiredFields = ['email', 'password', 'name', 'phone', 'birth_date']
         if not all(field in requestData for field in requiredFields):
-            return jsonify({"message": "Missing required fields"}), 400
+            return jsonify({
+                "message": "Missing required fields",
+                "required": requiredFields
+            }), 400
 
         database = None
         cursor = None
@@ -151,10 +160,7 @@ def registerUser():
             cursor.execute(sql, values)
             database.commit()
             
-            return jsonify({
-                "message": "User registered successfully",
-                "user_id": cursor.lastrowid
-            }), 201
+            return jsonify({"message": "User registered successfully"}), 201
             
         except Exception as e:
             if database:
