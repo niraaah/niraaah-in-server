@@ -155,6 +155,19 @@
       }
     }
   },
+  "securityDefinitions": {
+    "Bearer": {
+      "type": "apiKey",
+      "name": "Authorization",
+      "in": "header",
+      "description": "Enter your bearer token in the format: Bearer <token>"
+    }
+  },
+  "security": [
+    {
+      "Bearer": []
+    }
+  ],
   "paths": {
     "/auth/register": {
       "post": {
@@ -268,12 +281,15 @@
         "summary": "Get user profile",
         "security": [
           {
-            "OAuth2PasswordBearer": []
+            "Bearer": []
           }
         ],
         "responses": {
           "200": {
             "description": "User profile"
+          },
+          "401": {
+            "description": "Unauthorized"
           }
         }
       },

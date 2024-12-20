@@ -15,7 +15,18 @@ API_URL = '/static/swagger.json'
 swaggerBlueprint = get_swaggerui_blueprint(
     SWAGGER_URL,
     API_URL,
-    config={'app_name': "Job API"}
+    config={
+        'app_name': "Job API",
+        'securityDefinitions': {
+            'Bearer': {
+                'type': 'apiKey',
+                'name': 'Authorization',
+                'in': 'header',
+                'description': 'Enter your bearer token in the format: Bearer <token>'
+            }
+        },
+        'security': [{'Bearer': []}]
+    }
 )
 
 # 블루프린트 등록
