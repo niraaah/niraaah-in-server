@@ -174,8 +174,13 @@ def registerUser():
 @authBlueprint.route('/login', methods=['POST'])
 def loginUser():
     try:
-        email = request.form.get('email')
-        password = request.form.get('password')
+        # form 데이터 대신 URL 파라미터에서 읽기
+        email = request.args.get('email') or request.form.get('email')
+        password = request.args.get('password') or request.form.get('password')
+
+        # URL 인코딩된 username 파라미터 파싱
+        if not email and 'username' in request.args:
+            email = request.args.get('username').replace('%40', '@')
 
         if not email or not password:
             return jsonify({"message": "Missing email or password"}), 400
@@ -316,7 +321,7 @@ def getUserProfile():
         # g.currentUser는 requireAuthentication 데코레이터에서 설정됨
         userInfo = g.currentUser
 
-        # 민감한 정보를 제외한 사용자 프로필 데이터 반환
+        # 민���한 정보를 제외한 사용자 프로필 데이터 반환
         profile = {
             "user_id": userInfo['user_id'],
             "email": userInfo['email'],
