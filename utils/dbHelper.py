@@ -31,6 +31,20 @@ CONNECTION_TIMEOUT = 3
 databasePool = mysql.connector.pooling.MySQLConnectionPool(**poolConfig)
 
 def initializeTables(cursor):
+    # users 테이블 생성
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS users (
+            user_id INT PRIMARY KEY AUTO_INCREMENT,
+            email VARCHAR(100) UNIQUE NOT NULL,
+            password VARCHAR(200) NOT NULL,
+            name VARCHAR(50) NOT NULL,
+            phone VARCHAR(20),
+            birth_date DATE,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+        )
+    """)
+
     # job_categories 테이블 생성
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS job_categories (
@@ -104,7 +118,7 @@ def closeDatabaseConnection(error):
         except:
             pass
 
-# 프로그램 종료 시 모든 연결 정리
+# 프로그램 종�� 시 모든 연결 정리
 def cleanup_connections():
     for cnx in databasePool._cnx_queue.queue:
         try:
