@@ -120,191 +120,75 @@ def listJobs():
     finally:
         cursor.close()
 
-@jobBlueprint.route('/<int:jobId>', methods=['GET'], endpoint='get_job_detail')
-def getJobDetail(jobId):
+@jobBlueprint.route('/<int:jobId>', methods=['GET', 'PUT'], endpoint='job_detail')
+@requireAuthentication
+def handleJob(jobId):
+    if request.method == 'GET':
+        return getJobDetail(jobId)
+    elif request.method == 'PUT':
+        return updateJob(jobId)
+
+def updateJob(jobId):
     database = getDatabaseConnection()
     cursor = database.cursor(dictionary=True)
 
     try:
-        print(f"Fetching job details for ID: {jobId}")
-        
-        cursor.execute("UPDATE job_postings SET view_count = view_count + 1 WHERE posting_id = %s", (jobId,))
-        database.commit()
-
-        query = """
-        SELECT 
-            jp.*,
-            c.name as company_name,
-            l.city,
-            l.district,
-            GROUP_CONCAT(DISTINCT ts.name) as tech_stacks,
-            GROUP_CONCAT(DISTINCT jc.name) as job_categories
-        FROM job_postings jp
-        JOIN companies c ON jp.company_id = c.company_id
-        LEFT JOIN locations l ON jp.location_id = l.location_id
-        LEFT JOIN job_tech_stacks jts ON jp.posting_id = jts.posting_id
-        LEFT JOIN tech_stacks ts ON jts.stack_id = ts.stack_id
-        LEFT JOIN job_posting_categories jpc ON jp.posting_id = jpc.posting_id
-        LEFT JOIN job_categories jc ON jpc.category_id = jc.category_id
-        WHERE jp.posting_id = %s AND jp.status != 'deleted'
-        GROUP BY jp.posting_id
-        """
-
-        cursor.execute(query, (jobId,))
-        job = cursor.fetchone()
-        
-        print(f"Query result: {job}")
-
-        if not job:
-            print(f"No job found with ID: {jobId}")
+        # 먼저 해당 채용공고가 존재하는지 확인
+        cursor.execute("SELECT * FROM job_postings WHERE posting_id = %s", (jobId,))
+        if not cursor.fetchone():
             return jsonify({"message": "Job not found"}), 404
 
-        if job['tech_stacks']:
-            job['tech_stacks'] = job['tech_stacks'].split(',')
-        else:
-            job['tech_stacks'] = []
+        data = request.get_json()
+        if not data:
+            return jsonify({"message": "No input data provided"}), 400
 
-        if job['job_categories']:
-            job['job_categories'] = job['job_categories'].split(',')
-        else:
-            job['job_categories'] = []
+        # 업데이트할 필드들 준비
+        updateFields = []
+        values = []
 
-        relatedQuery = """
-        SELECT DISTINCT jp.posting_id, jp.title, c.name as company_name
-        FROM job_postings jp
-        JOIN companies c ON jp.company_id = c.company_id
-        LEFT JOIN job_tech_stacks jts ON jp.posting_id = jts.posting_id
-        LEFT JOIN tech_stacks ts ON jts.stack_id = ts.stack_id
-        WHERE jp.status = 'active' 
-        AND jp.posting_id != %s
-        AND (jp.company_id = %s 
-        OR ts.name IN (SELECT ts2.name 
-        FROM job_tech_stacks jts2 
-        JOIN tech_stacks ts2 ON jts2.stack_id = ts2.stack_id 
-        WHERE jts2.posting_id = %s))
-        ORDER BY RAND()
-        LIMIT 5
-        """
+        # 각 필드 검사 및 업데이트 목록에 추가
+        if 'title' in data:
+            updateFields.append("title = %s")
+            values.append(data['title'])
+        if 'job_description' in data:
+            updateFields.append("job_description = %s")
+            values.append(data['job_description'])
+        if 'experience_level' in data:
+            updateFields.append("experience_level = %s")
+            values.append(data['experience_level'])
+        if 'education_level' in data:
+            updateFields.append("education_level = %s")
+            values.append(data['education_level'])
+        if 'employment_type' in data:
+            updateFields.append("employment_type = %s")
+            values.append(data['employment_type'])
+        if 'salary_info' in data:
+            updateFields.append("salary_info = %s")
+            values.append(data['salary_info'])
+        if 'deadline_date' in data and data['deadline_date'] != "string":
+            try:
+                deadline_date = datetime.strptime(data['deadline_date'], '%Y-%m-%d').date()
+                updateFields.append("deadline_date = %s")
+                values.append(deadline_date)
+            except ValueError:
+                return jsonify({"message": "Invalid date format"}), 400
 
-        cursor.execute(relatedQuery, (jobId, job['company_id'], jobId))
-        relatedJobs = cursor.fetchall()
+        if not updateFields:
+            return jsonify({"message": "No fields to update"}), 400
 
-        return jsonify({"job": job, "related": relatedJobs})
-    finally:
-        cursor.close()
-
-@jobBlueprint.route('/<int:jobId>', methods=['PUT'], endpoint='update_job')
-@requireAuthentication
-def updateJob(jobId):
-    requestData = request.get_json()
-    if not requestData:
-        return jsonify({"message": "No input data provided"}), 400
-
-    database = getDatabaseConnection()
-    cursor = database.cursor(dictionary=True)
-
-    try:
-        cursor.execute(
-            """
-            SELECT jp.*, l.city, l.district 
-            FROM job_postings jp
-            LEFT JOIN locations l ON jp.location_id = l.location_id
-            WHERE jp.posting_id = %s
-            """,
-            (jobId,)
-        )
-        existingJob = cursor.fetchone()
-        if not existingJob:
-            return jsonify({"message": "Job posting not found"}), 404
-
-        updates = {}
-        updateFields = [
-            'title', 'job_description', 'experience_level', 'education_level',
-            'employment_type', 'salary_info', 'deadline_date', 'status'
-        ]
-
-        for field in updateFields:
-            if field in requestData:
-                updates[field] = requestData[field]
-
-        if 'location' in requestData:
-            cursor.execute(
-                """
-                SELECT location_id FROM locations 
-                WHERE city = %s AND (district = %s OR (district IS NULL AND %s IS NULL))
-                """,
-                (requestData['location']['city'], requestData['location'].get('district'),
-                requestData['location'].get('district'))
-            )
-            locationResult = cursor.fetchone()
-
-            if locationResult:
-                updates['location_id'] = locationResult['location_id']
-            else:
-                cursor.execute(
-                    "INSERT INTO locations (city, district) VALUES (%s, %s)",
-                    (requestData['location']['city'], requestData['location'].get('district'))
-                )
-                updates['location_id'] = cursor.lastrowid
-
-        if updates:
-            setClause = ", ".join(f"{key} = %s" for key in updates)
-            query = f"UPDATE job_postings SET {setClause} WHERE posting_id = %s"
-            cursor.execute(query, list(updates.values()) + [jobId])
-
-        if 'tech_stacks' in requestData:
-            cursor.execute("DELETE FROM posting_tech_stacks WHERE posting_id = %s", (jobId,))
-            for tech in requestData['tech_stacks']:
-                cursor.execute("SELECT stack_id FROM tech_stacks WHERE name = %s", (tech,))
-                result = cursor.fetchone()
-                if result:
-                    stackId = result['stack_id']
-                else:
-                    cursor.execute(
-                        "INSERT INTO tech_stacks (name) VALUES (%s)",
-                        (tech,)
-                    )
-                    stackId = cursor.lastrowid
-
-                cursor.execute(
-                    """
-                    INSERT INTO posting_tech_stacks (posting_id, stack_id)
-                    VALUES (%s, %s)
-                    """,
-                    (jobId, stackId)
-                )
-
-        if 'job_categories' in requestData:
-            cursor.execute("DELETE FROM posting_categories WHERE posting_id = %s", (jobId,))
-            for category in requestData['job_categories']:
-                cursor.execute(
-                    "SELECT category_id FROM job_categories WHERE name = %s",
-                    (category,)
-                )
-                result = cursor.fetchone()
-                if result:
-                    categoryId = result['category_id']
-                else:
-                    cursor.execute(
-                        "INSERT INTO job_categories (name) VALUES (%s)",
-                        (category,)
-                    )
-                    categoryId = cursor.lastrowid
-
-                cursor.execute(
-                    """
-                    INSERT INTO posting_categories (posting_id, category_id)
-                    VALUES (%s, %s)
-                    """,
-                    (jobId, categoryId)
-                )
-
+        # 업데이트 쿼리 실행
+        query = f"UPDATE job_postings SET {', '.join(updateFields)} WHERE posting_id = %s"
+        values.append(jobId)
+        
+        cursor.execute(query, values)
         database.commit()
+
         return jsonify({"message": "Job posting updated successfully"})
 
     except Exception as e:
         database.rollback()
-        return jsonify({"message": str(e)}), 500
+        print(f"Update error: {str(e)}")
+        return jsonify({"message": "Internal server error"}), 500
     finally:
         cursor.close()
 
@@ -355,7 +239,7 @@ def createJob():
         # 회사 ID가 0이면 새로운 회사 생성
         company_id = requestData['company_id']
         if company_id == 0:
-            # 회사명 중복 체크
+            # 회사명 중복 체���
             company_name = requestData.get('company_name', 'New Company')  # 회사명이 없으면 기본값 사용
             cursor.execute("SELECT company_id FROM companies WHERE name = %s", (company_name,))
             existing_company = cursor.fetchone()
