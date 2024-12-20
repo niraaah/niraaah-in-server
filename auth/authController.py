@@ -174,24 +174,29 @@ def registerUser():
 @authBlueprint.route('/login', methods=['POST'])
 def loginUser():
     try:
-        # form 데이터 대신 URL 파라미터에서 읽기
-        email = request.args.get('email') or request.form.get('email')
-        password = request.args.get('password') or request.form.get('password')
-
-        # URL 인코딩된 username 파라미터 파싱
-        if not email and 'username' in request.args:
-            email = request.args.get('username').replace('%40', '@')
+        # 1. application/json 형식 시도
+        data = request.get_json()
+        
+        if data:
+            email = data.get('email') or data.get('username')
+            password = data.get('password')
+        else:
+            # 2. form-urlencoded 형식 시도
+            email = request.values.get('username') or request.values.get('email')
+            password = request.values.get('password')
 
         if not email or not password:
             return jsonify({"message": "Missing email or password"}), 400
+
+        # 이메일 형식 정규화
+        email = email.replace('%40', '@')
+        
+        print(f"Login attempt - Email: {email}")  # 디버깅용
 
         database = getDatabaseConnection()
         cursor = database.cursor(dictionary=True)
 
         try:
-            print(f"Attempting login with email: {email}")
-            
-            email = email.replace('%40', '@')
             cursor.execute(
                 "SELECT user_id, password FROM users WHERE email=%s",
                 (email,)
@@ -199,40 +204,23 @@ def loginUser():
             userInfo = cursor.fetchone()
 
             if not userInfo:
-                print(f"User not found for email: {email}")
                 return jsonify({"message": "Invalid credentials"}), 401
 
-            print(f"Found user with id: {userInfo['user_id']}")
-            
             stored_hash = userInfo['password']
             if isinstance(stored_hash, str):
                 stored_hash = stored_hash.encode('utf-8')
                 
             if not bcrypt.checkpw(password.encode('utf-8'), stored_hash):
-                print("Password verification failed")
                 return jsonify({"message": "Invalid credentials"}), 401
 
-            print("Password verified successfully")
-            
             # 토큰 생성 및 응답
             token_data = {"sub": str(userInfo['user_id'])}
-            access_token = generateAccessToken(token_data)
-            refresh_token = generateRefreshToken(token_data)
-
-            response_data = {
-                "access_token": access_token,
-                "refresh_token": refresh_token,
-                "token_type": "bearer",
-                "example_usage": {
-                    "profile_request": {
-                        "curl": f'curl -X GET "http://113.198.66.75:10031/auth/profile" -H "Authorization: Bearer {access_token}"',
-                        "header": f"Authorization: Bearer {access_token}"
-                    }
-                }
-            }
             
-            print("Login successful, returning tokens with usage example")
-            return jsonify(response_data)
+            return jsonify({
+                "access_token": generateAccessToken(token_data),
+                "refresh_token": generateRefreshToken(token_data),
+                "token_type": "bearer"
+            })
 
         finally:
             cursor.close()
@@ -321,7 +309,7 @@ def getUserProfile():
         # g.currentUser는 requireAuthentication 데코레이터에서 설정됨
         userInfo = g.currentUser
 
-        # 민���한 정보를 제외한 사용자 프로필 데이터 반환
+        # 민한 정보를 제외한 사용자 프로필 데이터 반환
         profile = {
             "user_id": userInfo['user_id'],
             "email": userInfo['email'],
