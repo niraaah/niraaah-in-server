@@ -31,12 +31,7 @@ CONNECTION_TIMEOUT = 3
 databasePool = mysql.connector.pooling.MySQLConnectionPool(**poolConfig)
 
 def initializeTables(cursor):
-    # 기존 테이블 삭제 (순서 중요)
-    cursor.execute("DROP TABLE IF EXISTS job_tech_stacks")
-    cursor.execute("DROP TABLE IF EXISTS job_posting_categories")
-    cursor.execute("DROP TABLE IF EXISTS job_postings")
-    
-    # job_postings 테이블 다시 생성
+    # 테이블이 없을 때만 생성하도록 수정
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS job_postings (
             posting_id INT PRIMARY KEY AUTO_INCREMENT,
