@@ -1,20 +1,13 @@
-from flask import Flask, g
+from flask import Flask
 from flask_swagger_ui import get_swaggerui_blueprint
 from flask_cors import CORS
 from auth.authController import authBlueprint
 from job.jobController import jobBlueprint
 from user.userController import userBlueprint
-from utils.dbHelper import initializeDatabase, closeDatabaseConnection
-from flask_sqlalchemy import SQLAlchemy
+from utils.dbHelper import closeDatabaseConnection
 
 app = Flask(__name__)
 CORS(app)
-
-# MySQL 설정으로 변경
-app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql+mysqlconnector://admin:qwer1234@113.198.66.75:10108/wsd3'
-app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-
-db = SQLAlchemy(app)
 
 # Swagger 설정
 SWAGGER_URL = '/api/docs'
@@ -31,9 +24,7 @@ app.register_blueprint(authBlueprint, url_prefix='/auth')
 app.register_blueprint(jobBlueprint, url_prefix='/jobs')
 app.register_blueprint(userBlueprint, url_prefix='/users')
 
-# 데이터베이스 초기화
-initializeDatabase()
-
+# 데이터베이스 연결 해제를 위한 teardown 함수 등록
 @app.teardown_appcontext
 def cleanup(error):
     closeDatabaseConnection(error)

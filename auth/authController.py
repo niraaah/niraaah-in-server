@@ -5,6 +5,7 @@ from flask import Blueprint, request, jsonify, g
 from jose import JWTError, jwt
 import secrets
 from utils.dbHelper import getDatabaseConnection
+import bcrypt
 
 authBlueprint = Blueprint('auth', __name__)
 
@@ -82,55 +83,75 @@ def requireAuthentication(f):
 
 @authBlueprint.route('/register', methods=['POST'])
 def registerUser():
-    requestData = request.get_json()
-    if not requestData:
-        return jsonify({"message": "No input data provided"}), 400
-
-    requiredFields = ['email', 'password', 'name', 'username']
-    if not all(field in requestData for field in requiredFields):
-        return jsonify({"message": "Missing required fields"}), 400
-
-    database = getDatabaseConnection()
-    cursor = database.cursor(dictionary=True)
-
     try:
-        cursor.execute("SELECT user_id FROM users WHERE email=%s", (requestData['email'],))
-        if cursor.fetchone():
-            return jsonify({"message": "Email already registered"}), 400
+        requestData = request.get_json()
+        
+        # 필수 필드 검증
+        requiredFields = ['email', 'password', 'name']
+        if not all(field in requestData for field in requiredFields):
+            return jsonify({"message": "Missing required fields"}), 400
 
-        hashedPassword = encodePassword(requestData['password'])
-
-        cursor.execute(
+        database = None
+        cursor = None
+        try:
+            database = getDatabaseConnection()
+            cursor = database.cursor(dictionary=True)
+            
+            # 이메일 중복 체크
+            cursor.execute("SELECT user_id FROM users WHERE email=%s", (requestData['email'],))
+            if cursor.fetchone():
+                return jsonify({"message": "Email already exists"}), 409
+            
+            # 비밀번호 해싱
+            hashedPassword = bcrypt.hashpw(requestData['password'].encode('utf-8'), bcrypt.gensalt())
+            
+            # users 테이블이 없으면 생성
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS users (
+                    user_id INT PRIMARY KEY AUTO_INCREMENT,
+                    email VARCHAR(100) UNIQUE NOT NULL,
+                    password VARCHAR(255) NOT NULL,
+                    name VARCHAR(100) NOT NULL,
+                    phone VARCHAR(20),
+                    birth_date DATE,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            """)
+            
+            # 사용자 정보 삽입
+            sql = """
+                INSERT INTO users (email, password, name, phone, birth_date)
+                VALUES (%s, %s, %s, %s, %s)
             """
-            INSERT INTO users(email, username, password_hash, name, phone, birth_date, status) 
-            VALUES (%s, %s, %s, %s, %s, %s, 'active')
-            """,
-            (
-                requestData['email'],                    # 필수
-                requestData.get('email'),                # username을 email로 사용
-                hashedPassword,                          # 필수
-                requestData['name'],                     # 필수
-                requestData.get('phone'),                # 선택
-                requestData.get('birth_date')            # 선택
+            values = (
+                requestData['email'],
+                hashedPassword,
+                requestData['name'],
+                requestData.get('phone'),  # Optional
+                requestData.get('birth_date')  # Optional
             )
-        )
-        database.commit()
-        userId = cursor.lastrowid
-
-        accessToken = generateAccessToken(data={"sub": str(userId)})
-        refreshToken = generateRefreshToken(data={"sub": str(userId)})
-
-        return jsonify({
-            "access_token": accessToken,
-            "refresh_token": refreshToken,
-            "token_type": "bearer"
-        })
-
+            
+            cursor.execute(sql, values)
+            database.commit()
+            
+            return jsonify({
+                "message": "User registered successfully",
+                "user_id": cursor.lastrowid
+            }), 201
+            
+        except Exception as e:
+            if database:
+                database.rollback()
+            print(f"Database error: {str(e)}")  # 로깅 추가
+            return jsonify({"message": "Internal server error"}), 500
+            
+        finally:
+            if cursor:
+                cursor.close()
+            
     except Exception as e:
-        database.rollback()
-        return jsonify({"message": str(e)}), 500
-    finally:
-        cursor.close()
+        print(f"Request error: {str(e)}")  # 로깅 추가
+        return jsonify({"message": "Internal server error"}), 500
 
 # Login endpoint
 @authBlueprint.route('/login', methods=['POST'])
