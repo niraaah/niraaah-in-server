@@ -134,15 +134,22 @@ def registerUser():
             cursor.execute(sql, values)
             database.commit()
             
-            return jsonify({
+            response = jsonify({
                 "message": "User registered successfully",
                 "user_id": cursor.lastrowid
-            }), 201
+            })
+            
+            # CORS 헤더 추가
+            response.headers.add('Access-Control-Allow-Origin', '*')
+            response.headers.add('Access-Control-Allow-Headers', 'Content-Type')
+            response.headers.add('Access-Control-Allow-Methods', 'POST')
+            
+            return response, 201
             
         except Exception as e:
             if database:
                 database.rollback()
-            print(f"Database error: {str(e)}")  # 로깅 추가
+            print(f"Database error: {str(e)}")
             return jsonify({"message": "Internal server error"}), 500
             
         finally:
@@ -150,7 +157,7 @@ def registerUser():
                 cursor.close()
             
     except Exception as e:
-        print(f"Request error: {str(e)}")  # 로깅 추가
+        print(f"Request error: {str(e)}")
         return jsonify({"message": "Internal server error"}), 500
 
 # Login endpoint
