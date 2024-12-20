@@ -41,14 +41,6 @@ def toggleBookmark():
     cursor = database.cursor(dictionary=True)
 
     try:
-        # 채용공고가 존재하는지 먼저 확인
-        cursor.execute(
-            "SELECT posting_id FROM job_postings WHERE posting_id = %s AND status != 'deleted'",
-            (data['posting_id'],)
-        )
-        if not cursor.fetchone():
-            return jsonify({"message": "Invalid posting_id"}), 400
-
         # 이미 북마크했는지 확인
         cursor.execute(
             "SELECT * FROM bookmarks WHERE user_id = %s AND posting_id = %s",
@@ -64,6 +56,14 @@ def toggleBookmark():
             )
             message = "Bookmark removed"
         else:
+            # 북마크 추가 전에 채용공고 존재 여부 확인
+            cursor.execute(
+                "SELECT posting_id FROM job_postings WHERE posting_id = %s AND status != 'deleted'",
+                (data['posting_id'],)
+            )
+            if not cursor.fetchone():
+                return jsonify({"message": "Invalid posting_id"}), 400
+
             # 북마크 추가
             cursor.execute(
                 """
