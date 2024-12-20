@@ -305,24 +305,76 @@ def refreshUserToken():
         print(f"Refresh token error: {str(e)}")
         return jsonify({"message": "Internal server error"}), 500
 
-@authBlueprint.route('/profile', methods=['GET'])
+@authBlueprint.route('/profile', methods=['GET', 'PUT'])
 @requireAuthentication
 def getUserProfile():
-    try:
-        # g.currentUser는 requireAuthentication 데코레이터에서 설정됨
-        userInfo = g.currentUser
-
-        # 민한 정보를 제외한 사용자 프로필 데이터 반환
-        profile = {
-            "user_id": userInfo['user_id'],
-            "email": userInfo['email'],
-            "name": userInfo['name'],
-            "phone": userInfo['phone'],
-            "birth_date": userInfo['birth_date'].isoformat() if userInfo['birth_date'] else None
-        }
-        
-        return jsonify(profile)
-
-    except Exception as e:
-        print(f"Profile error: {str(e)}")
-        return jsonify({"message": "Internal server error"}), 500
+    if request.method == 'GET':
+        try:
+            userInfo = g.currentUser
+            profile = {
+                "user_id": userInfo['user_id'],
+                "email": userInfo['email'],
+                "name": userInfo['name'],
+                "phone": userInfo['phone'],
+                "birth_date": userInfo['birth_date'].isoformat() if userInfo['birth_date'] else None
+            }
+            return jsonify(profile)
+        except Exception as e:
+            print(f"Profile error: {str(e)}")
+            return jsonify({"message": "Internal server error"}), 500
+            
+    elif request.method == 'PUT':
+        try:
+            data = request.get_json()
+            userInfo = g.currentUser
+            
+            # 업데이트할 필드 확인
+            updateFields = []
+            values = []
+            
+            if 'name' in data:
+                updateFields.append("name = %s")
+                values.append(data['name'])
+                
+            if 'phone' in data:
+                updateFields.append("phone = %s")
+                values.append(data['phone'])
+                
+            if 'birth_date' in data:
+                updateFields.append("birth_date = %s")
+                values.append(data['birth_date'])
+                
+            if 'current_password' in data and 'new_password' in data:
+                # 현재 비밀번호 확인
+                cursor = getDatabaseConnection().cursor(dictionary=True)
+                cursor.execute("SELECT password FROM users WHERE user_id = %s", (userInfo['user_id'],))
+                current = cursor.fetchone()
+                cursor.close()
+                
+                if not bcrypt.checkpw(data['current_password'].encode('utf-8'), current['password'].encode('utf-8')):
+                    return jsonify({"message": "Current password is incorrect"}), 400
+                    
+                # 새 비밀번호 해싱
+                hashedPassword = bcrypt.hashpw(data['new_password'].encode('utf-8'), bcrypt.gensalt())
+                updateFields.append("password = %s")
+                values.append(hashedPassword)
+            
+            if not updateFields:
+                return jsonify({"message": "No fields to update"}), 400
+                
+            # 업데이트 쿼리 실행
+            database = getDatabaseConnection()
+            cursor = database.cursor()
+            
+            query = f"UPDATE users SET {', '.join(updateFields)} WHERE user_id = %s"
+            values.append(userInfo['user_id'])
+            
+            cursor.execute(query, values)
+            database.commit()
+            cursor.close()
+            
+            return jsonify({"message": "Profile updated successfully"})
+            
+        except Exception as e:
+            print(f"Profile update error: {str(e)}")
+            return jsonify({"message": "Internal server error"}), 500
