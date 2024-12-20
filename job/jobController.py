@@ -351,9 +351,14 @@ def createJob():
     try:
         # 날짜 형식 변환
         deadline_date = None
-        if 'deadline_date' in requestData:
+        if 'deadline_date' in requestData and requestData['deadline_date'] != "string":
             try:
-                deadline_date = datetime.strptime(requestData['deadline_date'], '%Y-%m-%d').date()
+                if isinstance(requestData['deadline_date'], str):
+                    deadline_date = datetime.strptime(requestData['deadline_date'], '%Y-%m-%d').date()
+                else:
+                    return jsonify({
+                        "message": "deadline_date must be a string in YYYY-MM-DD format"
+                    }), 400
             except ValueError:
                 return jsonify({
                     "message": "Invalid date format. Please use YYYY-MM-DD format"
