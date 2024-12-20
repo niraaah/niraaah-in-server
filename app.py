@@ -1,4 +1,4 @@
-from flask import Flask
+from flask import Flask, make_response
 from flask_swagger_ui import get_swaggerui_blueprint
 from flask_cors import CORS
 from auth.authController import authBlueprint
@@ -8,11 +8,20 @@ from utils.dbHelper import closeDatabaseConnection
 
 app = Flask(__name__)
 CORS(app, resources={r"/*": {
-    "origins": "*",
+    "origins": ["http://localhost:3000", "http://113.198.66.75:10031"],
     "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    "allow_headers": ["Content-Type", "Authorization", "Access-Control-Allow-Credentials"],
+    "allow_headers": ["Content-Type", "Authorization"],
+    "expose_headers": ["Content-Type", "Authorization"],
     "supports_credentials": True
 }})
+
+@app.after_request
+def after_request(response):
+    response.headers.add('Access-Control-Allow-Origin', 'http://113.198.66.75:10031')
+    response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization')
+    response.headers.add('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS')
+    response.headers.add('Access-Control-Allow-Credentials', 'true')
+    return response
 
 # Swagger 설정
 SWAGGER_URL = '/api/docs'
