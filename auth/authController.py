@@ -161,51 +161,56 @@ def registerUser():
 # Login endpoint
 @authBlueprint.route('/login', methods=['POST'])
 def loginUser():
-    if request.content_type == 'application/x-www-form-urlencoded':
+    try:
+        # form-urlencoded 데이터 파싱
         username = request.form.get('username')
         password = request.form.get('password')
-    else:
-        requestData = request.get_json()
-        if not requestData:
-            return jsonify({"message": "Invalid request format"}), 400
-        username = requestData.get('username')
-        password = requestData.get('password')
 
-    if not username or not password:
-        return jsonify({"message": "Missing username or password"}), 400
+        if not username or not password:
+            return jsonify({"message": "Missing username or password"}), 400
 
-    database = getDatabaseConnection()
-    cursor = database.cursor(dictionary=True)
+        database = getDatabaseConnection()
+        cursor = database.cursor(dictionary=True)
 
-    try:
-        cursor.execute(
-            "SELECT user_id, password_hash, status FROM users WHERE email=%s",
-            (username,)
-        )
-        userInfo = cursor.fetchone()
+        try:
+            # URL 디코딩된 이메일로 사용자 조회
+            email = username.replace('%40', '@')  # URL 인코딩된 @ 기호 처리
+            cursor.execute(
+                "SELECT user_id, password_hash FROM users WHERE email=%s",
+                (email,)
+            )
+            userInfo = cursor.fetchone()
 
-        if not userInfo or userInfo['status'] != 'active':
-            return jsonify({"message": "Invalid credentials"}), 401
+            if not userInfo:
+                return jsonify({"message": "Invalid credentials"}), 401
 
-        if not validatePassword(password, userInfo['password_hash']):
-            return jsonify({"message": "Invalid credentials"}), 401
+            # 비밀번호 검증
+            if not bcrypt.checkpw(password.encode('utf-8'), userInfo['password_hash'].encode('utf-8')):
+                return jsonify({"message": "Invalid credentials"}), 401
 
-        accessToken = generateAccessToken(data={"sub": str(userInfo['user_id'])})
-        refreshToken = generateRefreshToken(data={"sub": str(userInfo['user_id'])})
+            # 토큰 생성
+            accessToken = generateAccessToken(data={"sub": userInfo['user_id']})
+            refreshToken = generateRefreshToken(data={"sub": userInfo['user_id']})
 
-        cursor.execute(
-            "UPDATE users SET last_login=NOW() WHERE user_id=%s",
-            (userInfo['user_id'],)
-        )
-        database.commit()
+            # 마지막 로그인 시간 업데이트
+            cursor.execute(
+                "UPDATE users SET last_login=NOW() WHERE user_id=%s",
+                (userInfo['user_id'],)
+            )
+            database.commit()
 
-        return jsonify({
-            "access_token": accessToken,
-            "refresh_token": refreshToken,
-            "token_type": "bearer"
-        })
-    finally:
-        cursor.close()
+            return jsonify({
+                "access_token": accessToken,
+                "refresh_token": refreshToken,
+                "token_type": "bearer"
+            })
+
+        finally:
+            cursor.close()
+
+    except Exception as e:
+        print(f"Login error: {str(e)}")
+        return jsonify({"message": "Internal server error"}), 500
 
 @authBlueprint.route('/refresh', methods=['POST'])
 def refreshUserToken():
