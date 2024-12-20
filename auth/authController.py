@@ -219,43 +219,59 @@ def loginUser():
 
 @authBlueprint.route('/refresh', methods=['POST'])
 def refreshUserToken():
-    requestData = request.get_json()
-    if not requestData or 'refresh_token' not in requestData:
-        return jsonify({"message": "Refresh token is required"}), 400
-
     try:
-        payload = jwt.decode(requestData['refresh_token'], SECRET_KEY, algorithms=[ALGORITHM])
+        requestData = request.get_json()
+        if not requestData or 'refresh_token' not in requestData:
+            return jsonify({"message": "Refresh token is required"}), 400
 
-        if payload.get("scope") != "refresh_token":
-            return jsonify({"message": "Invalid token type"}), 401
-
-        userId = int(payload.get("sub"))
-        database = getDatabaseConnection()
-        cursor = database.cursor(dictionary=True)
+        refresh_token = requestData['refresh_token']
+        
+        # 디버깅을 위한 로그
+        print(f"Received refresh token: {refresh_token}")
 
         try:
-            cursor.execute(
-                "SELECT user_id, status FROM users WHERE user_id=%s",
-                (userId,)
-            )
-            userInfo = cursor.fetchone()
+            payload = jwt.decode(refresh_token, SECRET_KEY, algorithms=[ALGORITHM])
+            print(f"Decoded payload: {payload}")  # 디버깅 로그
 
-            if not userInfo or userInfo['status'] != 'active':
-                return jsonify({"message": "User is not active"}), 401
+            if payload.get("scope") != "refresh_token":
+                return jsonify({"message": "Invalid token type"}), 401
 
-            newAccessToken = generateAccessToken(data={"sub": str(userId)})
-            newRefreshToken = generateRefreshToken(data={"sub": str(userId)})
+            userId = payload.get("sub")
+            if not userId:
+                return jsonify({"message": "Invalid token payload"}), 401
 
-            return jsonify({
-                "access_token": newAccessToken,
-                "refresh_token": newRefreshToken,
-                "token_type": "bearer"
-            })
+            database = getDatabaseConnection()
+            cursor = database.cursor(dictionary=True)
 
-        finally:
-            cursor.close()
+            try:
+                cursor.execute(
+                    "SELECT user_id FROM users WHERE user_id=%s",
+                    (userId,)
+                )
+                userInfo = cursor.fetchone()
 
-    except jwt.ExpiredSignatureError:
-        return jsonify({"message": "Refresh token has expired"}), 401
-    except (jwt.JWTError, ValueError):
-        return jsonify({"message": "Invalid refresh token"}), 401
+                if not userInfo:
+                    return jsonify({"message": "User not found"}), 401
+
+                # 새 토큰 생성
+                newAccessToken = generateAccessToken(data={"sub": userId})
+                newRefreshToken = generateRefreshToken(data={"sub": userId})
+
+                return jsonify({
+                    "access_token": newAccessToken,
+                    "refresh_token": newRefreshToken,
+                    "token_type": "bearer"
+                })
+
+            finally:
+                cursor.close()
+
+        except jwt.ExpiredSignatureError:
+            return jsonify({"message": "Refresh token has expired"}), 401
+        except jwt.JWTError as e:
+            print(f"JWT Error: {str(e)}")  # 디버깅 로그
+            return jsonify({"message": "Invalid refresh token"}), 401
+
+    except Exception as e:
+        print(f"Refresh token error: {str(e)}")  # 디버깅 로그
+        return jsonify({"message": "Internal server error"}), 500
