@@ -439,39 +439,27 @@ def createJob():
     cursor = database.cursor(dictionary=True)
 
     try:
-        locationId = None
-        if 'location' in requestData:
-            cursor.execute(
-                """
-                SELECT location_id FROM locations 
-                WHERE city = %s AND (district = %s OR (district IS NULL AND %s IS NULL))
-                """,
-                (requestData['location']['city'], requestData['location'].get('district'),
-                requestData['location'].get('district'))
-            )
-            locationResult = cursor.fetchone()
-
-            if locationResult:
-                locationId = locationResult['location_id']
-            else:
-                cursor.execute(
-                    "INSERT INTO locations (city, district) VALUES (%s, %s)",
-                    (requestData['location']['city'], requestData['location'].get('district'))
-                )
-                locationId = cursor.lastrowid
-
         cursor.execute(
             """
             INSERT INTO job_postings(
                 company_id, title, job_description, experience_level,
                 education_level, employment_type, salary_info,
-                location_id, deadline_date, status, view_count
-            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, 'active', 0)
+                location_city, location_district,
+                deadline_date, status, view_count
+            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 'active', 0)
             """,
-            (requestData['company_id'], requestData['title'], requestData['job_description'],
-            requestData.get('experience_level'), requestData.get('education_level'),
-            requestData.get('employment_type'), requestData.get('salary_info'),
-            locationId, requestData.get('deadline_date'))
+            (
+                requestData['company_id'], 
+                requestData['title'], 
+                requestData['job_description'],
+                requestData.get('experience_level'),
+                requestData.get('education_level'),
+                requestData.get('employment_type'),
+                requestData.get('salary_info'),
+                requestData['location'].get('city'),
+                requestData['location'].get('district'),
+                requestData.get('deadline_date')
+            )
         )
 
         postingId = cursor.lastrowid
