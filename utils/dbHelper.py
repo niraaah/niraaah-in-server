@@ -61,13 +61,15 @@ def initializeTables(cursor):
             company_id INT NOT NULL,
             title VARCHAR(200) NOT NULL,
             job_description TEXT,
+            job_link VARCHAR(500),
             experience_level VARCHAR(50),
             education_level VARCHAR(50),
             employment_type VARCHAR(50),
+            salary_info VARCHAR(200),
             location_id INT,
             deadline_date DATE,
-            job_link VARCHAR(500),
             status VARCHAR(20) DEFAULT 'active',
+            view_count INT DEFAULT 0,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
             FOREIGN KEY (company_id) REFERENCES companies(company_id),
@@ -83,6 +85,17 @@ def initializeTables(cursor):
             PRIMARY KEY (posting_id, category_id),
             FOREIGN KEY (posting_id) REFERENCES job_postings(posting_id),
             FOREIGN KEY (category_id) REFERENCES job_categories(category_id)
+        )
+    """)
+
+    # job_tech_stacks 테이블 생성
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS job_tech_stacks (
+            posting_id INT,
+            stack_id INT,
+            PRIMARY KEY (posting_id, stack_id),
+            FOREIGN KEY (posting_id) REFERENCES job_postings(posting_id),
+            FOREIGN KEY (stack_id) REFERENCES tech_stacks(stack_id)
         )
     """)
 
@@ -118,7 +131,7 @@ def closeDatabaseConnection(error):
         except:
             pass
 
-# 프로그램 종�� 시 모든 연결 정리
+# 프로그램 종료 시 모든 연결 정리
 def cleanup_connections():
     for cnx in databasePool._cnx_queue.queue:
         try:
