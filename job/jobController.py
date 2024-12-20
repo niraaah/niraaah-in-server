@@ -335,35 +335,65 @@ def deleteJob(jobId):
     finally:
         cursor.close()
 
-@jobBlueprint.route('/', methods=['POST'])
+@jobBlueprint.route('/', methods=['POST'], endpoint='create_job')
+@requireAuthentication
 def createJob():
+    requestData = request.get_json()
+    if not requestData:
+        return jsonify({"message": "No input data provided"}), 400
+
+    requiredFields = ['company_id', 'title', 'job_description']
+    if not all(field in requestData for field in requiredFields):
+        return jsonify({"message": "Missing required fields"}), 400
+
+    database = getDatabaseConnection()
+    cursor = database.cursor(dictionary=True)
+
     try:
-        data = request.get_json()
-        
         # 날짜 형식 변환
-        if 'deadline_date' in data:
+        deadline_date = None
+        if 'deadline_date' in requestData:
             try:
-                # 'string' 형식을 DATE로 변환
-                deadline_date = datetime.strptime(data['deadline_date'], '%Y-%m-%d').date()
+                deadline_date = datetime.strptime(requestData['deadline_date'], '%Y-%m-%d').date()
             except ValueError:
                 return jsonify({
                     "message": "Invalid date format. Please use YYYY-MM-DD format"
                 }), 400
-        else:
-            deadline_date = None
 
-        # 나머지 데이터 처리
-        values = {
-            'company_id': data['company_id'],
-            'title': data['title'],
-            'job_description': data.get('job_description'),
-            'experience_level': data.get('experience_level'),
-            'education_level': data.get('education_level'),
-            'employment_type': data.get('employment_type'),
-            'salary_info': data.get('salary_info'),
-            'deadline_date': deadline_date,
-            # ... 나머지 필드들
-        }
+        locationId = None
+        if 'location' in requestData:
+            cursor.execute(
+                """
+                SELECT location_id FROM locations 
+                WHERE city = %s AND (district = %s OR (district IS NULL AND %s IS NULL))
+                """,
+                (requestData['location']['city'], requestData['location'].get('district'),
+                requestData['location'].get('district'))
+            )
+            locationResult = cursor.fetchone()
+
+            if locationResult:
+                locationId = locationResult['location_id']
+            else:
+                cursor.execute(
+                    "INSERT INTO locations (city, district) VALUES (%s, %s)",
+                    (requestData['location']['city'], requestData['location'].get('district'))
+                )
+                locationId = cursor.lastrowid
+
+        cursor.execute(
+            """
+            INSERT INTO job_postings(
+                company_id, title, job_description, experience_level,
+                education_level, employment_type, salary_info,
+                location_id, deadline_date, status, view_count
+            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, 'active', 0)
+            """,
+            (requestData['company_id'], requestData['title'], requestData['job_description'],
+            requestData.get('experience_level'), requestData.get('education_level'),
+            requestData.get('employment_type'), requestData.get('salary_info'),
+            locationId, deadline_date)  # 변환된 deadline_date 사용
+        )
 
         # ... 나머지 코드는 동일
 
