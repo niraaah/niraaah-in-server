@@ -12,7 +12,7 @@ def createTables(cursor):
             posting_id INT PRIMARY KEY AUTO_INCREMENT,
             company_id INT NOT NULL,
             title VARCHAR(200) NOT NULL,
-            job_description TEXT NOT NULL,
+            description TEXT NOT NULL,
             experience_level VARCHAR(50),
             education_level VARCHAR(50),
             employment_type VARCHAR(50),
@@ -110,7 +110,7 @@ def listJobs():
         jp.posting_id,
         c.name as company_name,
         jp.title,
-        jp.job_description,
+        jp.description,
         jp.experience_level,
         jp.education_level,
         jp.employment_type,
@@ -133,7 +133,7 @@ def listJobs():
     queryParams = []
 
     if searchKeyword:
-        query += " AND (jp.title LIKE %s OR jp.job_description LIKE %s)"
+        query += " AND (jp.title LIKE %s OR jp.description LIKE %s)"
         queryParams.extend([f"%{searchKeyword}%", f"%{searchKeyword}%"])
     if companyName:
         query += " AND c.name LIKE %s"
@@ -302,7 +302,7 @@ def updateJob(jobId):
 
         updates = {}
         updateFields = [
-            'title', 'job_description', 'experience_level', 'education_level',
+            'title', 'description', 'experience_level', 'education_level',
             'employment_type', 'salary_info', 'deadline_date', 'status'
         ]
 
@@ -431,7 +431,7 @@ def createJob():
     if not requestData:
         return jsonify({"message": "No input data provided"}), 400
 
-    requiredFields = ['company_id', 'title', 'job_description']
+    requiredFields = ['company_id', 'title', 'description']
     if not all(field in requestData for field in requiredFields):
         return jsonify({"message": "Missing required fields"}), 400
 
@@ -463,12 +463,12 @@ def createJob():
         cursor.execute(
             """
             INSERT INTO job_postings(
-                company_id, title, job_description, experience_level,
+                company_id, title, description, experience_level,
                 education_level, employment_type, salary_info,
                 location_id, deadline_date, status, view_count
             ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, 'active', 0)
             """,
-            (requestData['company_id'], requestData['title'], requestData['job_description'],
+            (requestData['company_id'], requestData['title'], requestData['description'],
             requestData.get('experience_level'), requestData.get('education_level'),
             requestData.get('employment_type'), requestData.get('salary_info'),
             locationId, requestData.get('deadline_date'))
