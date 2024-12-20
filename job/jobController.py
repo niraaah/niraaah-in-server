@@ -5,6 +5,91 @@ from utils.dbHelper import getDatabaseConnection
 
 jobBlueprint = Blueprint('job', __name__)
 
+def createTables(cursor):
+    # 채용 공고 테이블
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS job_postings (
+            posting_id INT PRIMARY KEY AUTO_INCREMENT,
+            company_id INT NOT NULL,
+            title VARCHAR(200) NOT NULL,
+            job_description TEXT NOT NULL,
+            experience_level VARCHAR(50),
+            education_level VARCHAR(50),
+            employment_type VARCHAR(50),
+            salary_info VARCHAR(100),
+            location_city VARCHAR(100),
+            location_district VARCHAR(100),
+            deadline_date DATE,
+            status VARCHAR(20) DEFAULT 'active',
+            view_count INT DEFAULT 0,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+        )
+    """)
+
+    # 기술 스택 테이블
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS tech_stacks (
+            stack_id INT PRIMARY KEY AUTO_INCREMENT,
+            stack_name VARCHAR(50) UNIQUE NOT NULL,
+            category VARCHAR(50) DEFAULT 'Other'
+        )
+    """)
+
+    # 채용 공고-기술 스택 연결 테이블
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS posting_tech_stacks (
+            posting_id INT,
+            stack_id INT,
+            PRIMARY KEY (posting_id, stack_id),
+            FOREIGN KEY (posting_id) REFERENCES job_postings(posting_id) ON DELETE CASCADE,
+            FOREIGN KEY (stack_id) REFERENCES tech_stacks(stack_id) ON DELETE CASCADE
+        )
+    """)
+
+    # 직무 카테고리 테이블
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS job_categories (
+            category_id INT PRIMARY KEY AUTO_INCREMENT,
+            name VARCHAR(100) UNIQUE NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    """)
+
+    # 채용 공고-직무 카테고리 연결 테이블
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS posting_categories (
+            posting_id INT,
+            category_id INT,
+            PRIMARY KEY (posting_id, category_id),
+            FOREIGN KEY (posting_id) REFERENCES job_postings(posting_id) ON DELETE CASCADE,
+            FOREIGN KEY (category_id) REFERENCES job_categories(category_id) ON DELETE CASCADE
+        )
+    """)
+
+    # 회사 테이블
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS companies (
+            company_id INT PRIMARY KEY AUTO_INCREMENT,
+            name VARCHAR(200) NOT NULL,
+            description TEXT,
+            logo_url VARCHAR(500),
+            website_url VARCHAR(500),
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    """)
+
+    # 위치 테이블
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS locations (
+            location_id INT PRIMARY KEY AUTO_INCREMENT,
+            city VARCHAR(100) NOT NULL,
+            district VARCHAR(100),
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE KEY city_district (city, district)
+        )
+    """)
+
 @jobBlueprint.route('/', methods=['GET'], endpoint='list_jobs')
 def listJobs():
     searchKeyword = request.args.get('keyword')
@@ -30,16 +115,14 @@ def listJobs():
         jp.education_level,
         jp.employment_type,
         jp.salary_info,
-        jp.location_id,
-        CONCAT(l.city, ' ', COALESCE(l.district, '')) as location,
+        CONCAT(jp.location_city, ' ', COALESCE(jp.location_district, '')) as location,
         jp.deadline_date,
         jp.view_count,
         jp.created_at,
-        GROUP_CONCAT(DISTINCT ts.name) as tech_stacks,
+        GROUP_CONCAT(DISTINCT ts.stack_name) as tech_stacks,
         GROUP_CONCAT(DISTINCT jc.name) as job_categories
     FROM job_postings jp
     JOIN companies c ON jp.company_id = c.company_id
-    LEFT JOIN locations l ON jp.location_id = l.location_id
     LEFT JOIN posting_tech_stacks pts ON jp.posting_id = pts.posting_id
     LEFT JOIN tech_stacks ts ON pts.stack_id = ts.stack_id
     LEFT JOIN posting_categories pc ON jp.posting_id = pc.posting_id
@@ -98,6 +181,9 @@ def listJobs():
     cursor = database.cursor(dictionary=True)
 
     try:
+        # 테이블이 없으면 생성
+        createTables(cursor)
+        
         cursor.execute(query, queryParams)
         jobs = cursor.fetchall()
 
@@ -353,39 +439,20 @@ def createJob():
     cursor = database.cursor(dictionary=True)
 
     try:
-        locationId = None
-        if 'location' in requestData:
-            cursor.execute(
-                """
-                SELECT location_id FROM locations 
-                WHERE city = %s AND (district = %s OR (district IS NULL AND %s IS NULL))
-                """,
-                (requestData['location']['city'], requestData['location'].get('district'),
-                requestData['location'].get('district'))
-            )
-            locationResult = cursor.fetchone()
-
-            if locationResult:
-                locationId = locationResult['location_id']
-            else:
-                cursor.execute(
-                    "INSERT INTO locations (city, district) VALUES (%s, %s)",
-                    (requestData['location']['city'], requestData['location'].get('district'))
-                )
-                locationId = cursor.lastrowid
-
         cursor.execute(
             """
             INSERT INTO job_postings(
                 company_id, title, job_description, experience_level,
                 education_level, employment_type, salary_info,
-                location_id, deadline_date, status, view_count
-            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, 'active', 0)
+                location_city, location_district,
+                deadline_date, status, view_count
+            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 'active', 0)
             """,
             (requestData['company_id'], requestData['title'], requestData['job_description'],
             requestData.get('experience_level'), requestData.get('education_level'),
             requestData.get('employment_type'), requestData.get('salary_info'),
-            locationId, requestData.get('deadline_date'))
+            requestData['location'].get('city'), requestData['location'].get('district'),
+            requestData.get('deadline_date'))
         )
 
         postingId = cursor.lastrowid
@@ -440,90 +507,3 @@ def createJob():
         return jsonify({"message": str(e)}), 500
     finally:
         cursor.close()
-
-def createTables(cursor):
-    # 회사 테이블
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS companies (
-            company_id INT PRIMARY KEY AUTO_INCREMENT,
-            name VARCHAR(200) NOT NULL,
-            description TEXT,
-            logo_url VARCHAR(500),
-            website_url VARCHAR(500),
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        )
-    """)
-
-    # 직무 카테고리 테이블
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS job_categories (
-            category_id INT PRIMARY KEY AUTO_INCREMENT,
-            name VARCHAR(100) UNIQUE NOT NULL,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        )
-    """)
-
-    # 기술 스택 테이블
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS tech_stacks (
-            stack_id INT PRIMARY KEY AUTO_INCREMENT,
-            name VARCHAR(50) UNIQUE NOT NULL,
-            category VARCHAR(50) DEFAULT 'Other'
-        )
-    """)
-
-    # 위치 테이블
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS locations (
-            location_id INT PRIMARY KEY AUTO_INCREMENT,
-            city VARCHAR(100) NOT NULL,
-            district VARCHAR(100),
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            UNIQUE KEY city_district (city, district)
-        )
-    """)
-
-    # 채용 공고 테이블
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS job_postings (
-            posting_id INT PRIMARY KEY AUTO_INCREMENT,
-            company_id INT NOT NULL,
-            title VARCHAR(200) NOT NULL,
-            job_description TEXT NOT NULL,
-            experience_level VARCHAR(50),
-            education_level VARCHAR(50),
-            employment_type VARCHAR(50),
-            salary_info VARCHAR(100),
-            location_id INT,
-            deadline_date DATE,
-            job_link VARCHAR(500),
-            status VARCHAR(20) DEFAULT 'active',
-            view_count INT DEFAULT 0,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-            FOREIGN KEY (company_id) REFERENCES companies(company_id),
-            FOREIGN KEY (location_id) REFERENCES locations(location_id)
-        )
-    """)
-
-    # 채용 공고-기술 스택 연결 테이블
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS job_tech_stacks (
-            posting_id INT,
-            stack_id INT,
-            PRIMARY KEY (posting_id, stack_id),
-            FOREIGN KEY (posting_id) REFERENCES job_postings(posting_id) ON DELETE CASCADE,
-            FOREIGN KEY (stack_id) REFERENCES tech_stacks(stack_id) ON DELETE CASCADE
-        )
-    """)
-
-    # 채용 공고-직무 카테고리 연결 테이블
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS posting_categories (
-            posting_id INT,
-            category_id INT,
-            PRIMARY KEY (posting_id, category_id),
-            FOREIGN KEY (posting_id) REFERENCES job_postings(posting_id) ON DELETE CASCADE,
-            FOREIGN KEY (category_id) REFERENCES job_categories(category_id) ON DELETE CASCADE
-        )
-    """)
