@@ -21,24 +21,29 @@ def validatePassword(plainPassword: str, encodedPassword: str) -> bool:
     return encodePassword(plainPassword) == encodedPassword
 
 def generateAccessToken(data: dict, expiresIn: Optional[timedelta] = None):
-    if "sub" in data and not isinstance(data["sub"], str):
-        data["sub"] = str(data["sub"])
-    
     tokenData = data.copy()
     if expiresIn:
-        expireTime = datetime.now() + expiresIn
+        expireTime = datetime.utcnow() + expiresIn
     else:
-        expireTime = datetime.now() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
-    tokenData.update({"exp": expireTime})
+        expireTime = datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    
+    tokenData.update({
+        "exp": expireTime,
+        "iat": datetime.utcnow(),
+        "type": "access_token"
+    })
     return jwt.encode(tokenData, SECRET_KEY, algorithm=ALGORITHM)
 
 def generateRefreshToken(data: dict):
-    if "sub" in data and not isinstance(data["sub"], str):
-        data["sub"] = str(data["sub"])
-
-    expireTime = datetime.now() + timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS)
     tokenData = data.copy()
-    tokenData.update({"exp": expireTime, "scope": "refresh_token"})
+    expireTime = datetime.utcnow() + timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS)
+    
+    tokenData.update({
+        "exp": expireTime,
+        "iat": datetime.utcnow(),
+        "type": "refresh_token",
+        "scope": "refresh_token"
+    })
     return jwt.encode(tokenData, SECRET_KEY, algorithm=ALGORITHM)
 
 def getCurrentUser():
@@ -189,7 +194,7 @@ def loginUser():
             # 디버깅을 위한 로그 추가
             print(f"Found user with id: {userInfo['user_id']}")
             
-            # 저장된 해시와 입력된 비밀번호 비교
+            # 저장된 해시와 입력된 비밀���호 비교
             stored_hash = userInfo['password_hash']
             if isinstance(stored_hash, str):
                 stored_hash = stored_hash.encode('utf-8')
@@ -225,19 +230,26 @@ def refreshUserToken():
             return jsonify({"message": "Refresh token is required"}), 400
 
         refresh_token = requestData['refresh_token']
-        
-        # 디버깅을 위한 로그
-        print(f"Received refresh token: {refresh_token}")
+        print(f"Received refresh token: {refresh_token}")  # 디버깅 로그
 
         try:
-            payload = jwt.decode(refresh_token, SECRET_KEY, algorithms=[ALGORITHM])
+            # 토큰 디코딩 시 시간 검증 옵션 추가
+            payload = jwt.decode(
+                refresh_token, 
+                SECRET_KEY, 
+                algorithms=[ALGORITHM],
+                options={"verify_exp": True}
+            )
             print(f"Decoded payload: {payload}")  # 디버깅 로그
 
-            if payload.get("scope") != "refresh_token":
+            # 토큰 타입 검증
+            if payload.get("type") != "refresh_token" or payload.get("scope") != "refresh_token":
+                print("Invalid token type")  # 디버깅 로그
                 return jsonify({"message": "Invalid token type"}), 401
 
             userId = payload.get("sub")
             if not userId:
+                print("Missing user ID in token")  # 디버깅 로그
                 return jsonify({"message": "Invalid token payload"}), 401
 
             database = getDatabaseConnection()
@@ -251,11 +263,12 @@ def refreshUserToken():
                 userInfo = cursor.fetchone()
 
                 if not userInfo:
+                    print(f"User not found: {userId}")  # 디버깅 로그
                     return jsonify({"message": "User not found"}), 401
 
                 # 새 토큰 생성
-                newAccessToken = generateAccessToken(data={"sub": userId})
-                newRefreshToken = generateRefreshToken(data={"sub": userId})
+                newAccessToken = generateAccessToken({"sub": str(userId)})
+                newRefreshToken = generateRefreshToken({"sub": str(userId)})
 
                 return jsonify({
                     "access_token": newAccessToken,
@@ -267,6 +280,7 @@ def refreshUserToken():
                 cursor.close()
 
         except jwt.ExpiredSignatureError:
+            print("Token has expired")  # 디버깅 로그
             return jsonify({"message": "Refresh token has expired"}), 401
         except jwt.JWTError as e:
             print(f"JWT Error: {str(e)}")  # 디버깅 로그
