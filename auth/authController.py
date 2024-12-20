@@ -134,17 +134,10 @@ def registerUser():
             cursor.execute(sql, values)
             database.commit()
             
-            response = jsonify({
+            return jsonify({
                 "message": "User registered successfully",
                 "user_id": cursor.lastrowid
-            })
-            
-            # CORS 헤더 추가
-            response.headers.add('Access-Control-Allow-Origin', '*')
-            response.headers.add('Access-Control-Allow-Headers', 'Content-Type')
-            response.headers.add('Access-Control-Allow-Methods', 'POST')
-            
-            return response, 201
+            }), 201
             
         except Exception as e:
             if database:
