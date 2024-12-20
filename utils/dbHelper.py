@@ -81,11 +81,26 @@ def createTables():
         
         cursor.execute("USE wsd3")
         
+        # 사용자 테이블
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS users (
+                user_id INT PRIMARY KEY AUTO_INCREMENT,
+                email VARCHAR(100) UNIQUE NOT NULL,
+                password_hash VARCHAR(200) NOT NULL,
+                name VARCHAR(50),
+                role VARCHAR(20) DEFAULT 'user',
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+        
         # 회사 테이블
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS companies (
                 company_id INT PRIMARY KEY AUTO_INCREMENT,
                 company_name VARCHAR(200) NOT NULL,
+                description TEXT,
+                logo_url VARCHAR(500),
+                website_url VARCHAR(500),
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         """)
@@ -108,7 +123,7 @@ def createTables():
             )
         """)
         
-        # 채용 공고 테이블 (CSV 구조 기반)
+        # 채용 공고 테이블
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS job_postings (
                 posting_id INT PRIMARY KEY AUTO_INCREMENT,
@@ -122,8 +137,38 @@ def createTables():
                 location_city VARCHAR(100),
                 location_district VARCHAR(100),
                 deadline_date DATE,
+                status VARCHAR(20) DEFAULT 'active',
+                view_count INT DEFAULT 0,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
                 FOREIGN KEY (company_id) REFERENCES companies(company_id)
+            )
+        """)
+        
+        # 북마크 테이블
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS bookmarks (
+                bookmark_id INT PRIMARY KEY AUTO_INCREMENT,
+                user_id INT NOT NULL,
+                posting_id INT NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (user_id) REFERENCES users(user_id),
+                FOREIGN KEY (posting_id) REFERENCES job_postings(posting_id) ON DELETE CASCADE,
+                UNIQUE KEY user_posting (user_id, posting_id)
+            )
+        """)
+        
+        # 이력서 테이블
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS resumes (
+                resume_id INT PRIMARY KEY AUTO_INCREMENT,
+                user_id INT NOT NULL,
+                title VARCHAR(200) NOT NULL,
+                content TEXT,
+                file_url VARCHAR(500),
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                FOREIGN KEY (user_id) REFERENCES users(user_id)
             )
         """)
         
