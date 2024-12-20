@@ -167,15 +167,15 @@ def getJobDetail(jobId):
         SELECT DISTINCT jp.posting_id, jp.title, c.name as company_name
         FROM job_postings jp
         JOIN companies c ON jp.company_id = c.company_id
-        LEFT JOIN posting_tech_stacks pts ON jp.posting_id = pts.posting_id
-        LEFT JOIN tech_stacks ts ON pts.stack_id = ts.stack_id
+        LEFT JOIN job_tech_stacks jts ON jp.posting_id = jts.posting_id
+        LEFT JOIN tech_stacks ts ON jts.stack_id = ts.stack_id
         WHERE jp.status = 'active' 
         AND jp.posting_id != %s
         AND (jp.company_id = %s 
         OR ts.name IN (SELECT ts2.name 
-        FROM posting_tech_stacks pts2 
-        JOIN tech_stacks ts2 ON pts2.stack_id = ts2.stack_id 
-        WHERE pts2.posting_id = %s))
+        FROM job_tech_stacks jts2 
+        JOIN tech_stacks ts2 ON jts2.stack_id = ts2.stack_id 
+        WHERE jts2.posting_id = %s))
         ORDER BY RAND()
         LIMIT 5
         """
