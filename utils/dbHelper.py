@@ -113,15 +113,34 @@ def initializeTables(cursor):
 
     # job_postings 테이블에 누락된 컬럼 추가
     try:
+        # 각 컬럼을 개별적으로 추가
         cursor.execute("""
-            ALTER TABLE job_postings 
-            ADD COLUMN IF NOT EXISTS job_description TEXT AFTER title,
-            ADD COLUMN IF NOT EXISTS salary_info VARCHAR(200) AFTER employment_type,
-            ADD COLUMN IF NOT EXISTS view_count INT DEFAULT 0 AFTER status
+            SELECT COUNT(*) 
+            FROM information_schema.columns 
+            WHERE table_name = 'job_postings' AND column_name = 'job_description'
         """)
+        if cursor.fetchone()[0] == 0:
+            cursor.execute("ALTER TABLE job_postings ADD COLUMN job_description TEXT AFTER title")
+            
+        cursor.execute("""
+            SELECT COUNT(*) 
+            FROM information_schema.columns 
+            WHERE table_name = 'job_postings' AND column_name = 'salary_info'
+        """)
+        if cursor.fetchone()[0] == 0:
+            cursor.execute("ALTER TABLE job_postings ADD COLUMN salary_info VARCHAR(200) AFTER employment_type")
+            
+        cursor.execute("""
+            SELECT COUNT(*) 
+            FROM information_schema.columns 
+            WHERE table_name = 'job_postings' AND column_name = 'view_count'
+        """)
+        if cursor.fetchone()[0] == 0:
+            cursor.execute("ALTER TABLE job_postings ADD COLUMN view_count INT DEFAULT 0 AFTER status")
+            
     except mysql.connector.Error as err:
-        print(f"Warning: {err}")  # 이미 컬럼이 존재하는 경우 무시
-        
+        print(f"Warning: {err}")
+
     # job_tech_stacks 테이블이 없으면 생성
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS job_tech_stacks (
