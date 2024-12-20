@@ -42,6 +42,7 @@ def listJobs():
     LEFT JOIN tech_stacks ts ON jts.stack_id = ts.stack_id
     LEFT JOIN job_posting_categories jpc ON jp.posting_id = jpc.posting_id
     LEFT JOIN job_categories jc ON jpc.category_id = jc.category_id
+    WHERE jp.status = 'active'
     """
 
     queryParams = []
@@ -415,6 +416,41 @@ def createJob():
         )
         database.commit()
 
+        # 채용공고 생성 후 tech_stacks 처리
+        posting_id = cursor.lastrowid
+        
+        if 'tech_stacks' in requestData and requestData['tech_stacks']:
+            for stack in requestData['tech_stacks']:
+                if stack != "string":  # "string" 값 무시
+                    # tech_stack이 존재하는지 확인하고 없으면 생성
+                    cursor.execute("SELECT stack_id FROM tech_stacks WHERE name = %s", (stack,))
+                    result = cursor.fetchone()
+                    if result:
+                        stack_id = result['stack_id']
+                    else:
+                        cursor.execute("INSERT INTO tech_stacks (name) VALUES (%s)", (stack,))
+                        stack_id = cursor.lastrowid
+                    
+                    # job_tech_stacks에 연결
+                    cursor.execute(
+                        "INSERT INTO job_tech_stacks (posting_id, stack_id) VALUES (%s, %s)",
+                        (posting_id, stack_id)
+                    )
+
+        # job_categories 처리도 유사하게
+        if 'job_categories' in requestData and requestData['job_categories']:
+            for category in requestData['job_categories']:
+                if category != "string":
+                    cursor.execute("SELECT category_id FROM job_categories WHERE name = %s", (category,))
+                    result = cursor.fetchone()
+                    if result:
+                        category_id = result['category_id']
+                        cursor.execute(
+                            "INSERT INTO job_posting_categories (posting_id, category_id) VALUES (%s, %s)",
+                            (posting_id, category_id)
+                        )
+
+        database.commit()
         return jsonify({
             "message": "Job posting created successfully",
             "posting_id": cursor.lastrowid,
