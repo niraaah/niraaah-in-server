@@ -174,15 +174,18 @@ def registerUser():
 @authBlueprint.route('/login', methods=['POST'])
 def loginUser():
     try:
-        # 1. application/json 형식 시도
-        data = request.get_json()
-        
-        if data:
+        # Content-Type에 따른 데이터 파싱
+        if request.is_json:
+            data = request.get_json()
             email = data.get('email') or data.get('username')
             password = data.get('password')
+        elif request.content_type == 'application/x-www-form-urlencoded':
+            # form-urlencoded 데이터 파싱
+            email = request.form.get('username')
+            password = request.form.get('password')
         else:
-            # 2. form-urlencoded 형식 시도
-            email = request.values.get('username') or request.values.get('email')
+            # URL 파라미터에서 시도
+            email = request.values.get('username')
             password = request.values.get('password')
 
         if not email or not password:
