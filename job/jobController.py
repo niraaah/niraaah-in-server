@@ -341,14 +341,20 @@ def createJob():
     if not requestData:
         return jsonify({"message": "No input data provided"}), 400
 
-    requiredFields = ['company_id', 'title', 'job_description']
-    if not all(field in requestData for field in requiredFields):
-        return jsonify({"message": "Missing required fields"}), 400
-
     database = getDatabaseConnection()
     cursor = database.cursor(dictionary=True)
 
     try:
+        # 회사 ID가 0이면 새로운 회사 생성
+        company_id = requestData['company_id']
+        if company_id == 0:
+            cursor.execute(
+                "INSERT INTO companies (name) VALUES (%s)",
+                ("Example Company",)  # 또는 requestData에서 회사명을 받아올 수 있음
+            )
+            company_id = cursor.lastrowid
+            database.commit()
+
         # 날짜 형식 변환
         deadline_date = None
         if 'deadline_date' in requestData and requestData['deadline_date'] != "string":
@@ -393,13 +399,21 @@ def createJob():
                 location_id, deadline_date, status, view_count
             ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, 'active', 0)
             """,
-            (requestData['company_id'], requestData['title'], requestData['job_description'],
+            (company_id, requestData['title'], requestData['job_description'],
             requestData.get('experience_level'), requestData.get('education_level'),
             requestData.get('employment_type'), requestData.get('salary_info'),
-            locationId, deadline_date)  # 변환된 deadline_date 사용
+            locationId, deadline_date)
         )
+        database.commit()
 
-        # ... 나머지 코드는 동일
+        return jsonify({
+            "message": "Job posting created successfully",
+            "posting_id": cursor.lastrowid,
+            "company_id": company_id
+        }), 201
 
     except Exception as e:
+        database.rollback()
         return jsonify({"message": str(e)}), 500
+    finally:
+        cursor.close()
