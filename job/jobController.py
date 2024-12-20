@@ -109,19 +109,19 @@ def listJobs():
     query = """
     SELECT DISTINCT
         jp.posting_id,
-        c.name as company_name,
+        c.company_name,
         jp.title,
-        jp.job_description,
+        jp.job_link,
         jp.experience_level,
         jp.education_level,
         jp.employment_type,
-        jp.salary_info,
+        jp.salary_range,
         CONCAT(jp.location_city, ' ', COALESCE(jp.location_district, '')) as location,
         jp.deadline_date,
         jp.view_count,
         jp.created_at,
         GROUP_CONCAT(DISTINCT ts.stack_name) as tech_stacks,
-        GROUP_CONCAT(DISTINCT jc.name) as job_categories
+        GROUP_CONCAT(DISTINCT jc.category_name) as job_categories
     FROM job_postings jp
     JOIN companies c ON jp.company_id = c.company_id
     LEFT JOIN posting_tech_stacks pts ON jp.posting_id = pts.posting_id
@@ -137,7 +137,7 @@ def listJobs():
         query += " AND (jp.title LIKE %s OR jp.job_description LIKE %s)"
         queryParams.extend([f"%{searchKeyword}%", f"%{searchKeyword}%"])
     if companyName:
-        query += " AND c.name LIKE %s"
+        query += " AND c.company_name LIKE %s"
         queryParams.append(f"%{companyName}%")
     if employmentType:
         query += " AND jp.employment_type = %s"
@@ -149,16 +149,16 @@ def listJobs():
         query += " AND jp.location_id = %s"
         queryParams.append(locationId)
     if salaryInfo:
-        query += " AND jp.salary_info LIKE %s"
+        query += " AND jp.salary_range LIKE %s"
         queryParams.append(f"%{salaryInfo}%")
     if experienceLevel:
         query += " AND jp.experience_level = %s"
         queryParams.append(experienceLevel)
     if techStacks:
-        query += f" AND ts.name IN ({','.join(['%s'] * len(techStacks))})"
+        query += f" AND ts.stack_name IN ({','.join(['%s'] * len(techStacks))})"
         queryParams.extend(techStacks)
     if jobCategories:
-        query += f" AND jc.name IN ({','.join(['%s'] * len(jobCategories))})"
+        query += f" AND jc.category_name IN ({','.join(['%s'] * len(jobCategories))})"
         queryParams.extend(jobCategories)
 
     query += " GROUP BY jp.posting_id"
@@ -221,11 +221,11 @@ def getJobDetail(jobId):
         query = """
         SELECT 
             jp.*,
-            c.name as company_name,
+            c.company_name,
             l.city,
             l.district,
-            GROUP_CONCAT(DISTINCT ts.name) as tech_stacks,
-            GROUP_CONCAT(DISTINCT jc.name) as job_categories
+            GROUP_CONCAT(DISTINCT ts.stack_name) as tech_stacks,
+            GROUP_CONCAT(DISTINCT jc.category_name) as job_categories
         FROM job_postings jp
         JOIN companies c ON jp.company_id = c.company_id
         LEFT JOIN locations l ON jp.location_id = l.location_id
@@ -254,7 +254,7 @@ def getJobDetail(jobId):
             job['job_categories'] = []
 
         relatedQuery = """
-        SELECT DISTINCT jp.posting_id, jp.title, c.name as company_name
+        SELECT DISTINCT jp.posting_id, jp.title, c.company_name
         FROM job_postings jp
         JOIN companies c ON jp.company_id = c.company_id
         LEFT JOIN posting_tech_stacks pts ON jp.posting_id = pts.posting_id
@@ -262,7 +262,7 @@ def getJobDetail(jobId):
         WHERE jp.status = 'active' 
         AND jp.posting_id != %s
         AND (jp.company_id = %s 
-        OR ts.name IN (SELECT ts2.name 
+        OR ts.stack_name IN (SELECT ts2.stack_name 
         FROM posting_tech_stacks pts2 
         JOIN tech_stacks ts2 ON pts2.stack_id = ts2.stack_id 
         WHERE pts2.posting_id = %s))
@@ -304,7 +304,7 @@ def updateJob(jobId):
         updates = {}
         updateFields = [
             'title', 'job_description', 'experience_level', 'education_level',
-            'employment_type', 'salary_info', 'deadline_date', 'status'
+            'employment_type', 'salary_range', 'deadline_date', 'status'
         ]
 
         for field in updateFields:
@@ -339,13 +339,13 @@ def updateJob(jobId):
         if 'tech_stacks' in requestData:
             cursor.execute("DELETE FROM posting_tech_stacks WHERE posting_id = %s", (jobId,))
             for tech in requestData['tech_stacks']:
-                cursor.execute("SELECT stack_id FROM tech_stacks WHERE name = %s", (tech,))
+                cursor.execute("SELECT stack_id FROM tech_stacks WHERE stack_name = %s", (tech,))
                 result = cursor.fetchone()
                 if result:
                     stackId = result['stack_id']
                 else:
                     cursor.execute(
-                        "INSERT INTO tech_stacks (name) VALUES (%s)",
+                        "INSERT INTO tech_stacks (stack_name, category) VALUES (%s, 'Other')",
                         (tech,)
                     )
                     stackId = cursor.lastrowid
@@ -362,7 +362,7 @@ def updateJob(jobId):
             cursor.execute("DELETE FROM posting_categories WHERE posting_id = %s", (jobId,))
             for category in requestData['job_categories']:
                 cursor.execute(
-                    "SELECT category_id FROM job_categories WHERE name = %s",
+                    "SELECT category_id FROM job_categories WHERE category_name = %s",
                     (category,)
                 )
                 result = cursor.fetchone()
@@ -370,7 +370,7 @@ def updateJob(jobId):
                     categoryId = result['category_id']
                 else:
                     cursor.execute(
-                        "INSERT INTO job_categories (name) VALUES (%s)",
+                        "INSERT INTO job_categories (category_name) VALUES (%s)",
                         (category,)
                     )
                     categoryId = cursor.lastrowid
@@ -460,13 +460,13 @@ def createJob():
 
         if requestData.get('tech_stacks'):
             for tech in requestData['tech_stacks']:
-                cursor.execute("SELECT stack_id FROM tech_stacks WHERE name = %s", (tech,))
+                cursor.execute("SELECT stack_id FROM tech_stacks WHERE stack_name = %s", (tech,))
                 result = cursor.fetchone()
                 if result:
                     stackId = result['stack_id']
                 else:
                     cursor.execute(
-                        "INSERT INTO tech_stacks (name, category) VALUES (%s, 'Other')",
+                        "INSERT INTO tech_stacks (stack_name, category) VALUES (%s, 'Other')",
                         (tech,)
                     )
                     stackId = cursor.lastrowid
@@ -479,7 +479,7 @@ def createJob():
         if requestData.get('job_categories'):
             for category in requestData['job_categories']:
                 cursor.execute(
-                    "SELECT category_id FROM job_categories WHERE name = %s",
+                    "SELECT category_id FROM job_categories WHERE category_name = %s",
                     (category,)
                 )
                 result = cursor.fetchone()
@@ -487,7 +487,7 @@ def createJob():
                     categoryId = result['category_id']
                 else:
                     cursor.execute(
-                        "INSERT INTO job_categories (name) VALUES (%s)",
+                        "INSERT INTO job_categories (category_name) VALUES (%s)",
                         (category,)
                     )
                     categoryId = cursor.lastrowid
